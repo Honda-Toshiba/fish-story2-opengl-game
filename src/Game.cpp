@@ -124,15 +124,35 @@ void Game::ProcessInput() {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
     
-    // Player movement
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        player->MoveForward(deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        player->MoveBackward(deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        player->MoveLeft(deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        player->MoveRight(deltaTime);
+    // Player movement - track if any movement key is pressed
+    bool isMoving = false;
+    glm::vec3 moveDirection(0.0f);
+    
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+        moveDirection += camera->Front;
+        isMoving = true;
+    }
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+        moveDirection -= camera->Front;
+        isMoving = true;
+    }
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+        moveDirection -= camera->Right;
+        isMoving = true;
+    }
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+        moveDirection += camera->Right;
+        isMoving = true;
+    }
+    
+    // Apply horizontal movement relative to camera
+    if (isMoving) {
+        // Normalize to prevent faster diagonal movement
+        moveDirection = glm::normalize(glm::vec3(moveDirection.x, 0.0f, moveDirection.z));
+        player->MoveInDirection(moveDirection, deltaTime);
+    }
+    
+    // Vertical movement (not affected by camera)
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
         player->MoveUp(deltaTime);
     if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || 
@@ -205,7 +225,8 @@ void Game::MouseCallback(GLFWwindow* window, double xpos, double ypos) {
     gameInstance->lastX = xpos;
     gameInstance->lastY = ypos;
     
-    gameInstance->player->UpdateRotation(xoffset, yoffset);
+    // Mouse controls camera, not player
+    gameInstance->camera->ProcessMouseMovement(xoffset, yoffset);
 }
 
 void Game::MouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {

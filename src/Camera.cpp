@@ -60,28 +60,24 @@ void Camera::ProcessMouseScroll(float yoffset) {
 void Camera::FollowPlayer(const glm::vec3& playerPos, const glm::vec3& playerFront, float deltaTime) {
     if (mode == FIRST_PERSON) {
         // First person - camera at player position looking in player's direction
-        Position = playerPos + glm::vec3(0.0f, 0.5f, 0.0f); // Slightly above fish center
+        Position = playerPos + glm::vec3(0.0f, 0.5f, 0.0f);
         Front = playerFront;
+        Up = glm::vec3(0.0f, 1.0f, 0.0f);
     } else {
-        // Third person - smooth camera that stays behind and above the player
-        float distance = 15.0f;  // Distance behind the player
-        float height = 6.0f;     // Height above the player
+        // Third person - orbit camera (Elden Ring / Assassin's Creed style)
+        float distance = 20.0f;
+        float height = 3.0f;
         
-        // Calculate desired camera position (behind and above player)
-        glm::vec3 horizontalFront = glm::normalize(glm::vec3(playerFront.x, 0.0f, playerFront.z));
-        glm::vec3 desiredPosition = playerPos - horizontalFront * distance + glm::vec3(0.0f, height, 0.0f);
+        // Camera position based on its own orientation (not player's)
+        glm::vec3 offset = -Front * distance;
+        offset.y += height;
         
-        // Smoothly interpolate camera position (smooth following)
-        float smoothSpeed = 8.0f * deltaTime;
-        Position = glm::mix(Position, desiredPosition, smoothSpeed);
+        Position = playerPos + offset;
         
-        // Always look at the player position
-        Front = glm::normalize(playerPos - Position);
+        // Update Right and Up vectors
+        Right = glm::normalize(glm::cross(Front, WorldUp));
+        Up = glm::normalize(glm::cross(Right, Front));
     }
-    
-    // Update camera vectors
-    Right = glm::normalize(glm::cross(Front, glm::vec3(0.0f, 1.0f, 0.0f)));
-    Up = glm::normalize(glm::cross(Right, Front));
 }
 
 void Camera::ToggleMode() {

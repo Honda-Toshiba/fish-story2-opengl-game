@@ -6,7 +6,7 @@ Player::Player(const std::string& modelPath)
     : position(0.0f, 0.0f, 0.0f),
       front(0.0f, 0.0f, -1.0f),
       up(0.0f, 1.0f, 0.0f),
-      yaw(-90.0f),
+      yaw(180.0f),  // Start facing forward (away from camera)
       pitch(0.0f),
       scale(0.1f),  // Scale down the model - most 3D models are quite large
       speed(10.0f),
@@ -14,6 +14,7 @@ Player::Player(const std::string& modelPath)
       isSprinting(false),
       mouthOpenAmount(0.0f),
       swimCycleTime(0.0f),
+      targetPitch(0.0f),
       minX(-100.0f), maxX(100.0f),
       minY(-50.0f), maxY(50.0f),
       minZ(-100.0f), maxZ(100.0f) {
@@ -29,6 +30,13 @@ void Player::Update(float deltaTime) {
     // Mouth animation (simulates eating/breathing)
     mouthOpenAmount = (sin(swimCycleTime * 3.0f) + 1.0f) * 0.5f * 0.1f;
     
+    // Smoothly interpolate pitch towards target
+    float pitchSpeed = 5.0f;
+    pitch += (targetPitch - pitch) * pitchSpeed * deltaTime;
+    
+    // Reset target pitch (will be set by movement functions if moving vertically)
+    targetPitch = 0.0f;
+    
     clampToBoundaries();
 }
 
@@ -36,6 +44,29 @@ void Player::Draw(Shader& shader) {
     glm::mat4 modelMatrix = GetModelMatrix();
     shader.setMat4("model", modelMatrix);
     model->Draw(shader);
+}
+
+void Player::MoveInDirection(const glm::vec3& direction, float deltaTime) {
+    float velocity = speed * deltaTime;
+    if (isSprinting) velocity *= sprintMultiplier;
+    
+    // Move in the given direction
+    position += direction * velocity;
+    
+    // Smoothly rotate fish to face movement direction
+    // Calculate target yaw from direction (negate because of our rotation setup)
+    float targetYaw = -atan2(direction.x, direction.z) * 180.0f / 3.14159f;
+    
+    // Smooth interpolation towards target yaw (like pitch system)
+    float yawDiff = targetYaw - yaw;
+    // Normalize angle difference to [-180, 180]
+    while (yawDiff > 180.0f) yawDiff -= 360.0f;
+    while (yawDiff < -180.0f) yawDiff += 360.0f;
+    
+    // Apply smooth interpolation (adjust 3.0f higher for faster, lower for slower)
+    yaw += yawDiff * 5.0f * deltaTime;
+    
+    updateVectors();
 }
 
 void Player::MoveForward(float deltaTime) {
@@ -63,11 +94,13 @@ void Player::MoveRight(float deltaTime) {
 void Player::MoveUp(float deltaTime) {
     float velocity = speed * deltaTime;
     position += up * velocity;
+    targetPitch = 30.0f;  // Tilt nose up when ascending
 }
 
 void Player::MoveDown(float deltaTime) {
     float velocity = speed * deltaTime;
     position -= up * velocity;
+    targetPitch = -30.0f;  // Tilt nose down when descending
 }
 
 void Player::SetSprint(bool sprint) {
@@ -103,9 +136,14 @@ glm::mat4 Player::GetModelMatrix() {
     // Translate to position
     model = glm::translate(model, position);
     
-    // Rotate to face direction
-    model = glm::rotate(model, glm::radians(yaw + 90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    model = glm::rotate(model, glm::radians(-pitch), glm::vec3(0.0f, 0.0f, 1.0f));
+    // Apply base orientation fix (model's nose points up, rotate it down)
+    model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    
+    // After base rotation, axes are remapped:
+    // - Yaw (turning left/right) should be around Z-axis now
+    // - Pitch (nose up/down) should be around X-axis now
+    model = glm::rotate(model, glm::radians(yaw), glm::vec3(0.0f, 0.0f, 1.0f));
+    model = glm::rotate(model, glm::radians(pitch), glm::vec3(-1.0f, 0.0f, 0.0f));
     
     // Add swimming animation (subtle body wave)
     float swimWave = sin(swimCycleTime * 4.0f) * 0.05f;

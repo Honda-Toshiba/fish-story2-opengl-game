@@ -25,6 +25,7 @@ public:
     // Animation state
     float mouthOpenAmount;
     float swimCycleTime;
+    float targetPitch;  // Target pitch for smooth tilting
     
     // Boundaries
     float minX, maxX, minY, maxY, minZ, maxZ;
@@ -36,6 +37,7 @@ public:
     void Update(float deltaTime);
     void Draw(Shader& shader);
     
+    void MoveInDirection(const glm::vec3& direction, float deltaTime);
     void MoveForward(float deltaTime);
     void MoveBackward(float deltaTime);
     void MoveLeft(float deltaTime);
