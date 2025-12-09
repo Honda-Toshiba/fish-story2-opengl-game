@@ -22,6 +22,7 @@ set(SOURCES
     src/GameLevel2.cpp
     src/Crab.cpp
     src/TreasureChest.cpp
+    src/Stalactite.cpp
 )
 
 set(HEADERS
@@ -40,6 +41,7 @@ set(HEADERS
     src/GameLevel2.h
     src/Crab.h
     src/TreasureChest.h
+    src/Stalactite.h
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
