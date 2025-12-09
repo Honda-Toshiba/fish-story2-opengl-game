@@ -57,19 +57,35 @@ else()
 endif()
 
 # ASSIMP
-find_package(assimp REQUIRED)
-target_link_libraries(${PROJECT_NAME} assimp)
+find_package(assimp CONFIG REQUIRED)
+target_link_libraries(${PROJECT_NAME} assimp::assimp)
 
-# Copy assets to build directory
-# We added 'audio' and 'textures' folders recently, so we copy those too
+# Copy assets to build directory and to Release/Debug folders for Visual Studio
 file(COPY ${CMAKE_SOURCE_DIR}/models DESTINATION ${CMAKE_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/shaders DESTINATION ${CMAKE_BINARY_DIR})
+
+# For Visual Studio multi-config generators, also copy to config-specific directories
+if(MSVC)
+    file(COPY ${CMAKE_SOURCE_DIR}/models DESTINATION ${CMAKE_BINARY_DIR}/Release)
+    file(COPY ${CMAKE_SOURCE_DIR}/shaders DESTINATION ${CMAKE_BINARY_DIR}/Release)
+    file(COPY ${CMAKE_SOURCE_DIR}/models DESTINATION ${CMAKE_BINARY_DIR}/Debug)
+    file(COPY ${CMAKE_SOURCE_DIR}/shaders DESTINATION ${CMAKE_BINARY_DIR}/Debug)
+endif()
+
 # Copy the new asset folders if they exist
 if(EXISTS "${CMAKE_SOURCE_DIR}/audio")
     file(COPY ${CMAKE_SOURCE_DIR}/audio DESTINATION ${CMAKE_BINARY_DIR})
+    if(MSVC)
+        file(COPY ${CMAKE_SOURCE_DIR}/audio DESTINATION ${CMAKE_BINARY_DIR}/Release)
+        file(COPY ${CMAKE_SOURCE_DIR}/audio DESTINATION ${CMAKE_BINARY_DIR}/Debug)
+    endif()
 endif()
 if(EXISTS "${CMAKE_SOURCE_DIR}/textures")
     file(COPY ${CMAKE_SOURCE_DIR}/textures DESTINATION ${CMAKE_BINARY_DIR})
+    if(MSVC)
+        file(COPY ${CMAKE_SOURCE_DIR}/textures DESTINATION ${CMAKE_BINARY_DIR}/Release)
+        file(COPY ${CMAKE_SOURCE_DIR}/textures DESTINATION ${CMAKE_BINARY_DIR}/Debug)
+    endif()
 endif()
 
 # Platform-specific settings

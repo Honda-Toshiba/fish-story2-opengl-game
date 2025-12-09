@@ -4,8 +4,9 @@
 #include <GLFW/glfw3.h>
 
 Enemy::Enemy(Model* m, glm::vec3 pos, EnemyType t, float s)
-    : model(m), position(pos), startPosition(pos), type(t), scale(s), 
-      rotationY(0.0f), patrolAngle(0.0f) {
+    : model(m), position(pos), startPosition(pos), type(t), scale(s), originalScale(s),
+      rotationY(0.0f), patrolAngle(0.0f), beingEaten(false), eatenComplete(false),
+      eatAnimationTime(0.0f), eatAnimationDuration(0.3f) {
     
     if (type == SHARK) {
         speed = 5.0f;
@@ -26,6 +27,24 @@ Enemy::Enemy(Model* m, glm::vec3 pos, EnemyType t, float s)
 }
 
 void Enemy::Update(float deltaTime, const glm::vec3& playerPos) {
+    // Handle eating animation
+    if (beingEaten) {
+        eatAnimationTime += deltaTime;
+        float progress = std::min(eatAnimationTime / eatAnimationDuration, 1.0f);
+        
+        // Smoothly move towards mouth position
+        position = glm::mix(position, targetMouthPos, progress * 5.0f * deltaTime);
+        
+        // Shrink to zero
+        scale = originalScale * (1.0f - progress);
+        
+        // Mark as complete when animation finishes
+        if (progress >= 1.0f) {
+            eatenComplete = true;
+        }
+        return;
+    }
+    
     if (type == SHARK) {
         // Simple patrol logic: circle around start position
         patrolAngle += speed * 0.1f * deltaTime;
@@ -112,4 +131,10 @@ bool Enemy::CheckCollision(const glm::vec3& playerPos, float playerRadius) {
         return true;
     }
     return false;
+}
+
+void Enemy::StartEatingAnimation(const glm::vec3& mouthPos) {
+    beingEaten = true;
+    targetMouthPos = mouthPos;
+    eatAnimationTime = 0.0f;
 }
