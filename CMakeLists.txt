@@ -13,6 +13,8 @@ set(SOURCES
     src/Player.cpp
     src/Ocean.cpp
     src/Game.cpp
+    src/Collectible.cpp
+    src/Enemy.cpp
 )
 
 set(HEADERS
@@ -22,6 +24,8 @@ set(HEADERS
     src/Player.h
     src/Ocean.h
     src/Game.h
+    src/Collectible.h
+    src/Enemy.h
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})

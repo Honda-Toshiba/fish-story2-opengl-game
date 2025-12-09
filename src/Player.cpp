@@ -137,12 +137,17 @@ glm::mat4 Player::GetModelMatrix() {
     model = glm::translate(model, position);
     
     // Apply base orientation fix (model's nose points up, rotate it down)
-    model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    // Base rotation to align model with world coordinates
+    // Many 3D models are exported with Y-up or Z-up differently
+    // If nose is pointing down, we need to adjust this base rotation
+    // Try 0.0f (no rotation) if 90 was down and -90 was up
+    // model = glm::rotate(model, glm::radians(0.0f), glm::vec3(1.0f, 0.0f, 0.0f));
     
     // After base rotation, axes are remapped:
-    // - Yaw (turning left/right) should be around Z-axis now
-    // - Pitch (nose up/down) should be around X-axis now
-    model = glm::rotate(model, glm::radians(yaw), glm::vec3(0.0f, 0.0f, 1.0f));
+    // - Yaw (turning left/right) - Inverted Y to fix left/right direction
+    model = glm::rotate(model, glm::radians(yaw), glm::vec3(0.0f, -1.0f, 0.0f));
+    
+    // - Pitch (nose up/down) - Inverted X to fix up/down direction
     model = glm::rotate(model, glm::radians(pitch), glm::vec3(-1.0f, 0.0f, 0.0f));
     
     // Add swimming animation (subtle body wave)
@@ -151,6 +156,10 @@ glm::mat4 Player::GetModelMatrix() {
     
     // Scale
     model = glm::scale(model, glm::vec3(scale));
+    
+    // Additional rotation to fix model orientation if needed
+    // If the model faces +Z or -Z by default, we might need to rotate it 180 degrees
+    // model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     
     return model;
 }

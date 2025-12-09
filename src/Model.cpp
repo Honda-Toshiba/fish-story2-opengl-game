@@ -42,6 +42,19 @@ void Mesh::Draw(Shader &shader) {
     unsigned int diffuseNr = 1;
     unsigned int specularNr = 1;
     
+    bool hasTexture = false;
+    if (textures.size() > 0) {
+        hasTexture = true;
+    }
+    // Debug print only once per mesh to avoid spam
+    static bool printedDebug = false;
+    if (!printedDebug && hasTexture) {
+        std::cout << "Mesh has " << textures.size() << " textures. Binding to shader." << std::endl;
+        printedDebug = true;
+    }
+    
+    shader.setBool("hasTexture", hasTexture);
+
     for(unsigned int i = 0; i < textures.size(); i++) {
         glActiveTexture(GL_TEXTURE0 + i);
         std::string number;
@@ -51,7 +64,7 @@ void Mesh::Draw(Shader &shader) {
         else if(name == "texture_specular")
             number = std::to_string(specularNr++);
 
-        shader.setInt(("material." + name + number).c_str(), i);
+        shader.setInt((name + number).c_str(), i); // Changed from material.name to just name for simplicity
         glBindTexture(GL_TEXTURE_2D, textures[i].id);
     }
     
@@ -174,12 +187,20 @@ std::vector<Texture> Model::loadMaterialTextures(aiMaterial *mat, aiTextureType 
 
 unsigned int Model::TextureFromFile(const char *path, const std::string &directory) {
     std::string filename = std::string(path);
+    
+    // Extract just the filename if it contains paths (fixes issues with absolute paths in .mtl)
+    size_t lastSlash = filename.find_last_of("/\\");
+    if (lastSlash != std::string::npos) {
+        filename = filename.substr(lastSlash + 1);
+    }
+    
     filename = directory + '/' + filename;
 
     unsigned int textureID;
     glGenTextures(1, &textureID);
 
     int width, height, nrComponents;
+    std::cout << "Attempting to load texture: " << filename << std::endl;
     unsigned char *data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
     if (data) {
         GLenum format;
@@ -189,6 +210,8 @@ unsigned int Model::TextureFromFile(const char *path, const std::string &directo
             format = GL_RGB;
         else if (nrComponents == 4)
             format = GL_RGBA;
+
+        std::cout << "Texture loaded successfully! Width: " << width << " Height: " << height << " Components: " << nrComponents << std::endl;
 
         glBindTexture(GL_TEXTURE_2D, textureID);
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
@@ -202,7 +225,8 @@ unsigned int Model::TextureFromFile(const char *path, const std::string &directo
         stbi_image_free(data);
     }
     else {
-        std::cout << "Texture failed to load at path: " << path << std::endl;
+        std::cout << "Texture failed to load at path: " << filename << std::endl;
+        std::cout << "Reason: " << stbi_failure_reason() << std::endl;
         stbi_image_free(data);
     }
 

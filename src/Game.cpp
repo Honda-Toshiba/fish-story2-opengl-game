@@ -8,7 +8,7 @@ Game::Game(int width, int height)
     : screenWidth(width), screenHeight(height), window(nullptr),
       deltaTime(0.0f), lastFrame(0.0f),
       lastX(width / 2.0f), lastY(height / 2.0f), firstMouse(true),
-      leftMousePressed(false) {
+      leftMousePressed(false), score(0), gameOver(false) {
     
     gameInstance = this;
     
@@ -74,6 +74,29 @@ bool Game::Initialize() {
     player = std::make_unique<Player>("models/Kingfish/Mesh_Kingfish.obj");
     player->position = glm::vec3(0.0f, -20.0f, 0.0f); // Start in middle of ocean
     
+    // Create collectibles (Seashells)
+    // Using a placeholder path - user needs to ensure this model exists or change the path
+    std::string shellPath = "models/Shell/Mesh_Shell.obj"; 
+    
+    // Add some shells at random positions
+    collectibles.push_back(std::make_unique<Collectible>(shellPath, glm::vec3(10.0f, -25.0f, 10.0f), 0.5f));
+    collectibles.push_back(std::make_unique<Collectible>(shellPath, glm::vec3(-15.0f, -20.0f, 5.0f), 0.5f));
+    collectibles.push_back(std::make_unique<Collectible>(shellPath, glm::vec3(5.0f, -30.0f, -15.0f), 0.5f));
+    collectibles.push_back(std::make_unique<Collectible>(shellPath, glm::vec3(-20.0f, -15.0f, -20.0f), 0.5f));
+    collectibles.push_back(std::make_unique<Collectible>(shellPath, glm::vec3(25.0f, -22.0f, 0.0f), 0.5f));
+
+    // Create Enemies (Sharks and Hooks)
+    std::string sharkPath = "models/Shark/shark.obj";
+    std::string hookPath = "models/Hook/Fish Hook.obj"; // Corrected filename with space
+    
+    // Add a patrolling shark
+    enemies.push_back(std::make_unique<Enemy>(sharkPath, glm::vec3(0.0f, -15.0f, 30.0f), SHARK, 1.5f));
+    
+    // Add some dangling hooks
+    // Reduced scale from 1.0f to 0.1f because the model is massive
+    enemies.push_back(std::make_unique<Enemy>(hookPath, glm::vec3(15.0f, -10.0f, 15.0f), HOOK, 0.1f));
+    enemies.push_back(std::make_unique<Enemy>(hookPath, glm::vec3(-15.0f, -15.0f, -15.0f), HOOK, 0.1f));
+
     // Create camera at proper initial position behind the player
     camera = std::make_unique<Camera>(glm::vec3(0.0f, -10.0f, 25.0f));
     
@@ -164,9 +187,36 @@ void Game::ProcessInput() {
 }
 
 void Game::Update() {
+    if (gameOver) return;
+
     player->Update(deltaTime);
     ocean->Update(deltaTime);
     camera->FollowPlayer(player->position, player->front, deltaTime);
+    
+    // Update collectibles and check collisions
+    for (auto& collectible : collectibles) {
+        collectible->Update(deltaTime);
+        
+        if (collectible->IsActive()) {
+            // Check collision with player (approximate radius 1.5f for player)
+            if (collectible->CheckCollision(player->position, 2.0f)) {
+                collectible->Deactivate();
+                score += 10;
+                std::cout << "Collectible collected! Score: " << score << std::endl;
+            }
+        }
+    }
+    
+    // Update enemies and check collisions
+    for (auto& enemy : enemies) {
+        enemy->Update(deltaTime, player->position);
+        
+        if (enemy->CheckCollision(player->position, 1.0f)) {
+            std::cout << "GAME OVER! You were caught by an enemy." << std::endl;
+            std::cout << "Final Score: " << score << std::endl;
+            gameOver = true;
+        }
+    }
 }
 
 void Game::Render() {
@@ -196,6 +246,17 @@ void Game::Render() {
     
     // Draw ocean environment
     ocean->Draw(*shader);
+    
+    // Draw collectibles
+    for (auto& collectible : collectibles) {
+        collectible->Draw(*shader);
+    }
+    
+    // Draw enemies
+    shader->setVec3("objectColor", 0.5f, 0.5f, 0.5f); // Grey fallback color
+    for (auto& enemy : enemies) {
+        enemy->Draw(*shader);
+    }
     
     // Draw player
     player->Draw(*shader);

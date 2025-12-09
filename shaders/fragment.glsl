@@ -15,6 +15,8 @@ uniform float time;
 uniform bool isFloor;
 uniform bool isWater;
 uniform bool isSkybox;
+uniform sampler2D texture_diffuse1;
+uniform bool hasTexture;
 
 // Caustics effect for underwater lighting
 float caustics(vec2 uv, float time) {
@@ -87,7 +89,11 @@ void main()
     }
     else {
         // Regular object rendering (fish)
-        result = objectColor * (ambient + diffuse) + specular;
+        vec3 baseColor = objectColor;
+        if (hasTexture) {
+            baseColor = texture(texture_diffuse1, TexCoords).rgb;
+        }
+        result = baseColor * (ambient + diffuse) + specular;
     }
     
     // Add god rays effect

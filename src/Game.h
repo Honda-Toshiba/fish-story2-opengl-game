@@ -14,6 +14,9 @@
 #include "Camera.h"
 #include "Ocean.h"
 #include "Shader.h"
+#include "Collectible.h"
+#include "Enemy.h"
+#include <vector>
 
 class Game {
 public:
@@ -38,6 +41,10 @@ private:
     std::unique_ptr<Camera> camera;
     std::unique_ptr<Ocean> ocean;
     std::unique_ptr<Shader> shader;
+    std::vector<std::unique_ptr<Collectible>> collectibles;
+    std::vector<std::unique_ptr<Enemy>> enemies;
+    int score;
+    bool gameOver;
     
     // Timing
     float deltaTime;
