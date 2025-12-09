@@ -437,10 +437,12 @@ void GameLevel2::Render() {
     // Draw cave
     cave->Draw(*shader);
     
-    // Draw player first
+    // Draw player first (only in third-person mode)
     shader->setVec3("objectColor", 0.3f, 0.5f, 0.6f);
     shader->setBool("isGlowing", false);
-    player->Draw(*shader);
+    if (camera->mode == THIRD_PERSON) {
+        player->Draw(*shader);
+    }
     
     // Draw anglerfish with glow
     for (auto& fish : anglerfish) {
