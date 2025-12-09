@@ -209,10 +209,11 @@ glm::mat4 Player::GetModelMatrix() {
 
 void Player::updateVectors() {
     // Calculate the new front vector
+    // Negated x component to match the fish model's forward direction
     glm::vec3 newFront;
-    newFront.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+    newFront.x = -sin(glm::radians(yaw)) * cos(glm::radians(pitch));
     newFront.y = sin(glm::radians(pitch));
-    newFront.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    newFront.z = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
     front = glm::normalize(newFront);
     
     // Recalculate right and up vector
