@@ -10,7 +10,7 @@ Game::Game(int width, int height)
     : screenWidth(width), screenHeight(height), window(nullptr),
       deltaTime(0.0f), lastFrame(0.0f),
       lastX(width / 2.0f), lastY(height / 2.0f), firstMouse(true),
-      leftMousePressed(false), score(0.0f), gameOver(false), gameWon(false), targetScale(0.2f),
+      leftMousePressed(false), score(0.0f), gameOver(false), gameWon(false), targetScale(0.15f),
       playerHealth(100.0f), maxHealth(100.0f), damageCooldown(2.0f), damageCooldownTimer(0.0f),
       shouldTransitionToLevel2(false),
       speedBoostActive(false), speedBoostTimer(0.0f), speedBoostDuration(10.0f),

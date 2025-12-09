@@ -76,6 +76,14 @@ private:
     float damageCooldown;
     float damageCooldownTimer;
     
+    // Powerup tracking
+    bool speedBoostActive;
+    float speedBoostTimer;
+    float speedBoostDuration;
+    bool doubleScoreActive;
+    float doubleScoreTimer;
+    float doubleScoreDuration;
+    
     // Timing
     float deltaTime;
     float lastFrame;

@@ -1,5 +1,7 @@
 #include "GameLevel2.h"
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 #include <cmath>
 #include <cstdlib>
 
@@ -13,7 +15,9 @@ GameLevel2::GameLevel2(int width, int height)
       leftMousePressed(false), score(0), anglerfishCollected(0),
       gameOver(false), gameWon(false),
       stalactiteSpawnTimer(0.0f), stalactiteSpawnInterval(5.0f),
-      playerHealth(100.0f), maxHealth(100.0f), damageCooldown(2.0f), damageCooldownTimer(0.0f) {
+      playerHealth(100.0f), maxHealth(100.0f), damageCooldown(2.0f), damageCooldownTimer(0.0f),
+      speedBoostActive(false), speedBoostTimer(0.0f), speedBoostDuration(10.0f),
+      doubleScoreActive(false), doubleScoreTimer(0.0f), doubleScoreDuration(15.0f) {
     
     gameLevel2Instance = this;
     
@@ -680,10 +684,7 @@ void GameLevel2::Render() {
         textRenderer->RenderText(msg2, centerX - 190.0f, centerY - 50.0f, 1.2f, glm::vec3(1.0f, 1.0f, 1.0f));
     }
     else {
-        // Disable depth test for UI rendering
-        glDisable(GL_DEPTH_TEST);
-        
-        // 1. Health Bar (Top Left)
+        // 1. HEALTH BAR (Top Left)
         float healthBarWidth = 200.0f;
         float healthBarHeight = 20.0f;
         float healthBarX = 20.0f;
@@ -708,27 +709,30 @@ void GameLevel2::Render() {
         std::string healthText = "HP: " + std::to_string((int)playerHealth) + "%";
         textRenderer->RenderText(healthText, healthBarX, healthBarY + healthBarHeight + 10.0f, 0.8f, glm::vec3(1.0f, 1.0f, 1.0f));
         
-        // 2. Standard Stats (Top Left, below health bar)
-        std::string scoreText = "Score: " + std::to_string(score);
-        textRenderer->RenderText(scoreText, 20.0f, screenHeight - 110.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+        // 2. Standard Stats (Below Health Bar)
+        std::string scoreText = "Score: " + std::to_string((int)score);
+        textRenderer->RenderText(scoreText, 20.0f, screenHeight - 120.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
         
-        std::string fishText = "Anglerfish: " + std::to_string(anglerfishCollected) + "/8";
-        textRenderer->RenderText(fishText, 20.0f, screenHeight - 150.0f, 1.0f, glm::vec3(0.5f, 0.8f, 1.0f));
-        
-        std::string progressText = "Progress: " + std::to_string((int)(cave->GetProgress(player->position) * 100)) + "%";
-        textRenderer->RenderText(progressText, 20.0f, screenHeight - 190.0f, 1.0f, glm::vec3(1.0f, 1.0f, 0.5f));
-        
-        // 3. SPRINT / COOLDOWN BAR (Bottom Center)
-        float barWidth = 300.0f;
+        std::string sizeText = "Anglerfish: " + std::to_string(anglerfishCollected) + "/8";
+        textRenderer->RenderText(sizeText, 20.0f, screenHeight - 160.0f, 1.0f, glm::vec3(0.5f, 0.8f, 1.0f)); 
+
+        // 2. POWERUP INDICATORS (Top Right)
+        float buffX = screenWidth - 300.0f; // Start 300px from right edge
+        float buffY = screenHeight - 50.0f; // Start at top
+        glDisable(GL_DEPTH_TEST);
+        // -- SPEED BOOST --
+        // 2. SPRINT / COOLDOWN BAR (Bottom Center)
+        float barWidth = 300.0f; // Make it wider for the main HUD
         float barHeight = 15.0f;
         
+        // Math to center items horizontally: (Screen/2) - (Item/2)
         float barX = (screenWidth / 2.0f) - (barWidth / 2.0f);
-        float barY = 40.0f;
+        float barY = 40.0f; // 40 pixels from the bottom edge
         
-        // Draw Background (Dark Gray)
+        // A. Draw Background (Dark Gray)
         textRenderer->RenderBar(barX, barY, barWidth, barHeight, glm::vec3(0.2f, 0.2f, 0.2f));
 
-        // Calculate Fill & Color
+        // B. Calculate Fill & Color
         float fillPercent = 1.0f;
         glm::vec3 barColor = glm::vec3(1.0f); 
         std::string statusText = "";
@@ -752,14 +756,29 @@ void GameLevel2::Render() {
             statusText = "READY [LMB]";
         }
         
-        // Draw Foreground Bar
+        glEnable(GL_DEPTH_TEST);
+        // C. Draw Foreground Bar
         textRenderer->RenderBar(barX, barY, barWidth * fillPercent, barHeight, barColor);
         
-        // Draw Text (Centered above the bar)
+        // D. Draw Text (Centered above the bar)
+        // A rough estimate to center text: Subtract ~4px per character from center
         float textX = (screenWidth / 2.0f) - (statusText.length() * 4.0f);
         textRenderer->RenderText(statusText, textX, barY + 25.0f, 0.5f, barColor);
         
-        glEnable(GL_DEPTH_TEST);
+        // Draw Foreground Bar
+        // We scale the Width based on percentage
+        textRenderer->RenderBar(barX, barY, barWidth * fillPercent, barHeight, barColor);
+
+        // -- DOUBLE SCORE --
+        if (doubleScoreActive) {
+            float timeLeft = doubleScoreDuration - doubleScoreTimer;
+            
+            std::stringstream ds;
+            ds << "2X SCORE: " << std::fixed << std::setprecision(1) << timeLeft << "s";
+            
+            // Render in Gold
+            textRenderer->RenderText(ds.str(), buffX, buffY, 1.0f, glm::vec3(1.0f, 0.8f, 0.0f));
+        }
     }
     glDisable(GL_BLEND);
 }
