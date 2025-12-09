@@ -658,7 +658,11 @@ void Game::Render() {
             enemy->Draw(*shader);
             shader->setBool("isGlowingFish", false);
         }
-        player->Draw(*shader);
+        
+        // Only draw player model in third-person mode
+        if (camera->mode == THIRD_PERSON) {
+            player->Draw(*shader);
+        }
     }
 
     // ---------------------------------------------
