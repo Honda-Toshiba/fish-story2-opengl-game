@@ -56,6 +56,12 @@ private:
     bool gameWon;
     float targetScale;
     
+    // Health system
+    float playerHealth;
+    float maxHealth;
+    float damageCooldown;
+    float damageCooldownTimer;
+    
     // Powerup tracking
     bool speedBoostActive;
     float speedBoostTimer;

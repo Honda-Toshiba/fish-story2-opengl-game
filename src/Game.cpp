@@ -11,6 +11,7 @@ Game::Game(int width, int height)
       deltaTime(0.0f), lastFrame(0.0f),
       lastX(width / 2.0f), lastY(height / 2.0f), firstMouse(true),
       leftMousePressed(false), score(0.0f), gameOver(false), gameWon(false), targetScale(0.2f),
+      playerHealth(100.0f), maxHealth(100.0f), damageCooldown(2.0f), damageCooldownTimer(0.0f),
       speedBoostActive(false), speedBoostTimer(0.0f), speedBoostDuration(10.0f),
       doubleScoreActive(false), doubleScoreTimer(0.0f), doubleScoreDuration(15.0f) {
     
@@ -302,6 +303,8 @@ void Game::ResetLevel() {
     gameOver = false;
     gameWon = false;
     score = 0.0f;
+    playerHealth = maxHealth;
+    damageCooldownTimer = 0.0f;
     
     player->scale = 0.1f;
     player->position = glm::vec3(0.0f, -20.0f, 0.0f);
@@ -410,6 +413,14 @@ void Game::Update() {
         }
     }
     
+    // Update damage cooldown timer
+    if (damageCooldownTimer > 0.0f) {
+        damageCooldownTimer -= deltaTime;
+        if (damageCooldownTimer < 0.0f) {
+            damageCooldownTimer = 0.0f;
+        }
+    }
+    
     for (auto& collectible : collectibles) {
         collectible->Update(deltaTime);
         if (collectible->IsActive()) {
@@ -494,24 +505,35 @@ void Game::Update() {
         // CASE B: Dangerous Enemies (Shark/Hook) - touch to die
         else {
             if ((*it)->CheckCollision(player->position, playerRadius)) {
-                if (!gameOver) {
-                    // --- NEW: Play specific sound based on enemy type ---
+                // Only damage if cooldown has expired
+                if (damageCooldownTimer <= 0.0f) {
+                    // Deal 20% damage
+                    playerHealth -= 20.0f;
+                    damageCooldownTimer = damageCooldown;
+                    
+                    // Play damage sounds
                     if ((*it)->GetType() == SHARK) {
                         audio->Play("crunch"); // Shark bite
                         audio->Play("damage"); // Generic hit
                     } 
                     else if ((*it)->GetType() == HOOK) {
                         audio->Play("hook");   // Metal hook sound
-                        // You can play "damage" here too if you want, 
-                        // or just let the hook sound stand alone.
                     }
-                    audio->Stop("bubbles"); // Stop ambience for dramatic effect
+                    
+                    std::cout << "Hit by " << ((*it)->GetType() == SHARK ? "shark" : "hook") 
+                             << "! Health: " << playerHealth << "%" << std::endl;
+                    
+                    // Check if dead
+                    if (playerHealth <= 0.0f) {
+                        playerHealth = 0.0f;
+                        if (!gameOver) {
+                            audio->Stop("bubbles"); // Stop ambience for dramatic effect
+                        }
+                        std::cout << "!!! GAME OVER !!! You died!" << std::endl;
+                        std::cout << "Final Score: " << score << std::endl;
+                        gameOver = true;
+                    }
                 }
-                
-                std::cout << "!!! GAME OVER !!! You were caught by a " 
-                         << ((*it)->GetType() == SHARK ? "shark" : "hook") << "!" << std::endl;
-                std::cout << "Final Score: " << score << std::endl;
-                gameOver = true;
             }
         }
         
@@ -692,14 +714,39 @@ void Game::Render() {
         textRenderer->RenderText(msg2, centerX - 190.0f, centerY - 50.0f, 1.2f, glm::vec3(1.0f, 1.0f, 1.0f));
     }
     else {
-        // 1. Standard Stats (Top Left)
+        // 1. HEALTH BAR (Top Left)
+        float healthBarWidth = 200.0f;
+        float healthBarHeight = 20.0f;
+        float healthBarX = 20.0f;
+        float healthBarY = screenHeight - 50.0f;
+        
+        // Background (dark red)
+        textRenderer->RenderBar(healthBarX, healthBarY, healthBarWidth, healthBarHeight, glm::vec3(0.2f, 0.0f, 0.0f));
+        
+        // Health fill
+        float healthPercent = playerHealth / maxHealth;
+        glm::vec3 healthColor;
+        if (healthPercent > 0.6f) {
+            healthColor = glm::vec3(0.0f, 1.0f, 0.0f); // Green
+        } else if (healthPercent > 0.3f) {
+            healthColor = glm::vec3(1.0f, 1.0f, 0.0f); // Yellow
+        } else {
+            healthColor = glm::vec3(1.0f, 0.2f, 0.2f); // Bright Red
+        }
+        textRenderer->RenderBar(healthBarX, healthBarY, healthBarWidth * healthPercent, healthBarHeight, healthColor);
+        
+        // Health text
+        std::string healthText = "HP: " + std::to_string((int)playerHealth) + "%";
+        textRenderer->RenderText(healthText, healthBarX, healthBarY + healthBarHeight + 10.0f, 0.8f, glm::vec3(1.0f, 1.0f, 1.0f));
+        
+        // 2. Standard Stats (Below Health Bar)
         std::string scoreText = "Score: " + std::to_string((int)score);
-        textRenderer->RenderText(scoreText, 20.0f, screenHeight - 50.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+        textRenderer->RenderText(scoreText, 20.0f, screenHeight - 120.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
         
         std::stringstream ss;
         ss << std::fixed << std::setprecision(2) << (player->scale * 100) << " / " << targetScale * 100;
         std::string sizeText = "Size: " + ss.str();
-        textRenderer->RenderText(sizeText, 20.0f, screenHeight - 90.0f, 1.0f, glm::vec3(0.5f, 0.8f, 1.0f)); 
+        textRenderer->RenderText(sizeText, 20.0f, screenHeight - 160.0f, 1.0f, glm::vec3(0.5f, 0.8f, 1.0f)); 
 
         // 2. POWERUP INDICATORS (Top Right)
         float buffX = screenWidth - 300.0f; // Start 300px from right edge

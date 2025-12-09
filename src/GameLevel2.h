@@ -18,6 +18,7 @@
 #include "Anglerfish.h"
 #include "Crab.h"
 #include "TreasureChest.h"
+#include "TextRenderer.h"
 #include "Model.h"
 
 class GameLevel2 {
@@ -54,10 +55,20 @@ private:
     std::unique_ptr<Model> treasureChestModel;
     std::unique_ptr<Model> coinModel;
     
+    // UI resources
+    std::unique_ptr<TextRenderer> textRenderer;
+    std::unique_ptr<Shader> textShader;
+    
     int score;
     int anglerfishCollected;
     bool gameOver;
     bool gameWon;
+    
+    // Health system
+    float playerHealth;
+    float maxHealth;
+    float damageCooldown;
+    float damageCooldownTimer;
     
     // Timing
     float deltaTime;
