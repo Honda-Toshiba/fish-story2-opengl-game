@@ -43,8 +43,12 @@ private:
     std::unique_ptr<Shader> shader;
     std::vector<std::unique_ptr<Collectible>> collectibles;
     std::vector<std::unique_ptr<Enemy>> enemies;
+    std::unique_ptr<Model> sunModel;
+
     int score;
     bool gameOver;
+    bool gameWon;
+    float targetScale;
     
     // Timing
     float deltaTime;

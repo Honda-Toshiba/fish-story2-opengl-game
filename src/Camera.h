@@ -69,7 +69,7 @@ public:
     void ProcessMouseScroll(float yoffset);
     
     // Update camera to follow player
-    void FollowPlayer(const glm::vec3& playerPos, const glm::vec3& playerFront, float deltaTime);
+    void FollowPlayer(const glm::vec3& playerPos, const glm::vec3& playerFront, float deltaTime, float playerScale);
     
     // Toggle camera mode
     void ToggleMode();

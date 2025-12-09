@@ -8,7 +8,7 @@ Game::Game(int width, int height)
     : screenWidth(width), screenHeight(height), window(nullptr),
       deltaTime(0.0f), lastFrame(0.0f),
       lastX(width / 2.0f), lastY(height / 2.0f), firstMouse(true),
-      leftMousePressed(false), score(0), gameOver(false) {
+      leftMousePressed(false), score(0), gameOver(false), gameWon(false), targetScale(2.0f) {
     
     gameInstance = this;
     
@@ -92,6 +92,9 @@ bool Game::Initialize() {
     std::string hookPath = "models/Hook/Fish Hook.obj";
     hookModel = std::make_unique<Model>(hookPath);
 
+    std::string sunPath = "models/Sun/model.obj"; 
+    sunModel = std::make_unique<Model>(sunPath);
+
     // Create collectibles (Seashells)
     // Add some shells at random positions
     collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(10.0f, -25.0f, 10.0f), 0.5f));
@@ -101,7 +104,7 @@ bool Game::Initialize() {
     collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(25.0f, -22.0f, 0.0f), 0.5f));
     
     // Add many swimming fish scattered around the map using Fish_v1 model
-    float fishScale = 0.5f; // Small fish
+    float fishScale = 0.15f; // Small fish
     
     // Distribute 30 swimming fish around the map at various positions
     enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(15.0f, -18.0f, 20.0f), FISH, fishScale));
@@ -206,6 +209,19 @@ void Game::Run() {
 }
 
 void Game::ProcessInput() {
+    if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
+        if (gameOver || gameWon) {
+            // Reset Logic
+            gameOver = false;
+            gameWon = false;
+            score = 0;
+            player->scale = 0.1f; // Reset size
+            player->position = glm::vec3(0.0f, -20.0f, 0.0f);
+            std::cout << "Game Restarted!" << std::endl;
+            // Ideally, you would respawn eaten fish here too
+        }
+    }
+
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
     
@@ -249,58 +265,129 @@ void Game::ProcessInput() {
 }
 
 void Game::Update() {
-    if (gameOver) return;
+    // 1. Stop updating if game is over
+    if (gameOver || gameWon) return;
 
+    // 2. Standard Updates
     player->Update(deltaTime);
     ocean->Update(deltaTime);
-    camera->FollowPlayer(player->position, player->front, deltaTime);
+    camera->FollowPlayer(player->position, player->front, deltaTime, player->scale);
     
-    // Update collectibles and check collisions
+    // 3. Update Collectibles
     for (auto& collectible : collectibles) {
         collectible->Update(deltaTime);
-        
         if (collectible->IsActive()) {
-            // Check collision with player (approximate radius 1.5f for player)
             if (collectible->CheckCollision(player->position, 2.0f)) {
                 collectible->Deactivate();
                 score += 10;
-                std::cout << "Collectible collected! Score: " << score << std::endl;
+                // Optional: Shells give a small growth boost?
+                // player->Grow(0.05f); 
             }
         }
     }
     
-        // Update enemies and check collisions
+    // 4. Update Enemies & Check Collisions
     for (auto it = enemies.begin(); it != enemies.end(); ) {
         (*it)->Update(deltaTime, player->position);
         
-        // Check if player eats a fish
+        // CASE A: Edible Fish
         if ((*it)->GetType() == FISH) {
-            if (glm::distance((*it)->GetPosition(), player->position) < 2.0f) {
+            // Check if we eat the fish (Dynamic collision radius based on size)
+            float eatRadius = 1.5f * (player->scale / 0.1f);
+            
+            if (glm::distance((*it)->GetPosition(), player->position) < eatRadius) {
                 score += 5;
-                std::cout << "Fish eaten! Score: " << score << std::endl;
+                player->Grow(0.02f); // Grow per fish
                 it = enemies.erase(it); // Remove eaten fish
                 continue;
             }
         }
-        // Check collision with dangerous enemies (Shark, Hook)
+        // CASE B: Dangerous Enemies (Shark/Hook)
         else if ((*it)->CheckCollision(player->position, 1.0f)) {
-            std::cout << "GAME OVER! You were caught by an enemy." << std::endl;
-            std::cout << "Final Score: " << score << std::endl;
+            std::cout << "!!! GAME OVER !!! You were caught." << std::endl;
             gameOver = true;
         }
         
         ++it;
     }
+
+    // 5. Check WIN Condition
+    if (player->scale >= targetScale) {
+        std::cout << "*** YOU WIN! *** King of the Ocean!" << std::endl;
+        gameWon = true;
+    }
+
+    // 6. Update HUD (Window Title)
+    std::string title = "Fish Story 2 | Score: " + std::to_string(score) + 
+                        " | Size: " + std::to_string(player->scale) + 
+                        " / " + std::to_string(targetScale);
+    glfwSetWindowTitle(window, title.c_str());
 }
 
 void Game::Render() {
-    // Clear buffers with underwater color
-    glClearColor(0.1f, 0.3f, 0.5f, 1.0f);
+    // ---------------------------------------------
+    // 1. CELESTIAL MATH (The Physics)
+    // ---------------------------------------------
+    // Cycle: 0.0 to 2*PI. Multiplier 0.1f = Day speed.
+    float cycleTime = glfwGetTime() * 0.1f; 
+    float orbitRadius = 100.0f;
+    
+    // Calculate positions (Opposite to each other)
+    float orbitX = sin(cycleTime) * orbitRadius;
+    float orbitY = cos(cycleTime) * orbitRadius;
+    
+    // Position vectors based on orbit
+    glm::vec3 sunPos(orbitX, orbitY, 0.0f);
+    glm::vec3 moonPos = -sunPos; 
+
+    // ---------------------------------------------
+    // 2. DETERMINE ACTIVE LIGHT SOURCE
+    // ---------------------------------------------
+    glm::vec3 activeLightPos;
+    float skyMix;
+
+    if (sunPos.y >= 0.0f) {
+        // DAYTIME
+        activeLightPos = sunPos;
+        skyMix = (sin(cycleTime) + 1.0f) / 2.0f; // Smooth day/night transition
+    } else {
+        // NIGHTTIME
+        activeLightPos = moonPos;
+        skyMix = 0.0f; // Night
+    }
+
+    // ---------------------------------------------
+    // 3. RENDER SETUP
+    // ---------------------------------------------
+    // Define Atmosphere Colors
+    glm::vec3 dayLight(1.0f, 0.95f, 0.8f);    
+    glm::vec3 nightLight(0.05f, 0.05f, 0.2f); 
+    
+    glm::vec3 daySky(0.1f, 0.3f, 0.5f);       
+    glm::vec3 nightSky(0.01f, 0.01f, 0.05f);  
+
+    glm::vec3 currentLightColor = glm::mix(nightLight, dayLight, skyMix);
+    glm::vec3 currentSkyColor   = glm::mix(nightSky, daySky, skyMix);
+
+    // Clear screen
+    if (gameOver) {
+        // Red tint for Death
+        currentSkyColor = glm::vec3(0.5f, 0.0f, 0.0f);
+        currentLightColor = glm::vec3(1.0f, 0.0f, 0.0f);
+    } 
+    else if (gameWon) {
+        // Gold/Green tint for Victory
+        currentSkyColor = glm::vec3(0.8f, 0.7f, 0.2f);
+        currentLightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+    }
+
+    // Clear buffers
+    glClearColor(currentSkyColor.r, currentSkyColor.g, currentSkyColor.b, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     shader->use();
-    
-    // Set up view and projection matrices
+
+    // Send Uniforms
     glm::mat4 view = camera->GetViewMatrix();
     glm::mat4 projection = glm::perspective(glm::radians(camera->Zoom),
                                            (float)screenWidth / (float)screenHeight,
@@ -309,30 +396,60 @@ void Game::Render() {
     shader->setMat4("view", view);
     shader->setMat4("projection", projection);
     
-    // Set lighting
-    glm::vec3 lightPos(0.0f, 50.0f, 0.0f); // Sun position above water
-    shader->setVec3("lightPos", lightPos);
+    // Send "Real" Light Source Position
+    shader->setVec3("lightPos", activeLightPos);
     shader->setVec3("viewPos", camera->Position);
-    shader->setVec3("lightColor", 1.0f, 0.95f, 0.8f); // Warm sunlight
-    
-    // Set time for animations
+    shader->setVec3("lightColor", currentLightColor);
+    shader->setVec3("skyColor", currentSkyColor);
     shader->setFloat("time", glfwGetTime());
+
+    // ==========================================
+    // 4. DRAW CELESTIAL BODIES (FIRST!)
+    // ==========================================
+    // We draw these before the water so they appear "behind" the transparent surface.
     
-    // Draw ocean environment
-    ocean->Draw(*shader);
-    
-    // Draw collectibles
-    for (auto& collectible : collectibles) {
-        collectible->Draw(*shader);
+    // -- DRAW SUN --
+    if (sunPos.y > -20.0f) {
+        glm::mat4 sunMat = glm::mat4(1.0f);
+        sunMat = glm::translate(sunMat, sunPos);
+        sunMat = glm::scale(sunMat, glm::vec3(8.0f)); 
+
+        shader->setMat4("model", sunMat);
+        shader->setVec3("objectColor", 1.00f, 0.80f, 0.00f); // Yellow
+        shader->setBool("isSun", true); // Trigger Glow Shader
+        
+        if (sunModel) sunModel->Draw(*shader);
+        else shellModel->Draw(*shader);
+        
+        shader->setBool("isSun", false); 
     }
-    
-    // Draw enemies
-    shader->setVec3("objectColor", 0.5f, 0.5f, 0.5f); // Grey fallback color
-    for (auto& enemy : enemies) {
-        enemy->Draw(*shader);
+
+    // -- DRAW MOON --
+    if (moonPos.y > -20.0f) {
+        glm::mat4 moonMat = glm::mat4(1.0f);
+        moonMat = glm::translate(moonMat, moonPos);
+        moonMat = glm::scale(moonMat, glm::vec3(4.0f)); 
+
+        shader->setMat4("model", moonMat);
+        shader->setVec3("objectColor", 0.9f, 0.9f, 1.0f); // White
+        shader->setBool("isSun", true); // Reuse Glow Shader
+        
+        if (sunModel) sunModel->Draw(*shader);
+        else shellModel->Draw(*shader);
+        
+        shader->setBool("isSun", false); 
     }
+
+    // ==========================================
+    // 5. DRAW WORLD (Water blends over Sun)
+    // ==========================================
+    ocean->Draw(*shader); 
     
-    // Draw player
+    for (auto& collectible : collectibles) collectible->Draw(*shader);
+    
+    shader->setVec3("objectColor", 0.5f, 0.5f, 0.5f);
+    for (auto& enemy : enemies) enemy->Draw(*shader);
+    
     player->Draw(*shader);
 }
 

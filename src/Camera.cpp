@@ -57,16 +57,26 @@ void Camera::ProcessMouseScroll(float yoffset) {
         Zoom = 45.0f;
 }
 
-void Camera::FollowPlayer(const glm::vec3& playerPos, const glm::vec3& playerFront, float deltaTime) {
+void Camera::FollowPlayer(const glm::vec3& playerPos, const glm::vec3& playerFront, float deltaTime, float playerScale) {
     if (mode == FIRST_PERSON) {
-        // First person - camera at player position looking in player's direction
-        Position = playerPos + glm::vec3(0.0f, 0.5f, 0.0f);
+        // First person - adjust eye height based on fish size
+        // Base height 0.5f scaled up
+        float eyeHeight = 0.5f + (playerScale - 0.1f) * 2.0f;
+        Position = playerPos + glm::vec3(0.0f, eyeHeight, 0.0f);
         Front = playerFront;
         Up = glm::vec3(0.0f, 1.0f, 0.0f);
     } else {
-        // Third person - orbit camera (Elden Ring / Assassin's Creed style)
-        float distance = 20.0f;
-        float height = 3.0f;
+        // Third person - orbit camera
+        
+        // DYNAMIC CAMERA DISTANCE
+        // Base distance is 20.0f at scale 0.1f
+        // As scale increases, we push the camera back linearly
+        float scaleFactor = playerScale / 0.1f; // 1.0 at start, increases as you grow
+        
+        // Calculate new distance and height
+        // We use a formula: Base + (Growth * Multiplier)
+        float distance = 20.0f + (playerScale - 0.1f) * 40.0f; 
+        float height = 3.0f + (playerScale - 0.1f) * 10.0f;
         
         // Camera position based on its own orientation (not player's)
         glm::vec3 offset = -Front * distance;

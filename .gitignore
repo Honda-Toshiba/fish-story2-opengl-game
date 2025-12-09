@@ -40,7 +40,6 @@ Makefile
 # Temporary files
 *.log
 *.tmp
-*.bak
 
 # OS generated files
 Thumbs.db

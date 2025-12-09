@@ -75,6 +75,17 @@ void Player::MoveForward(float deltaTime) {
     position += front * velocity;
 }
 
+void Player::Grow(float amount) {
+    scale += amount;
+    // Cap size if needed
+    if (scale > 2.0f) scale = 2.0f; 
+}
+
+float Player::GetCollisionRadius() const {
+    // Base radius is roughly 1.0f, scales with the model
+    return 1.5f * (scale / 0.1f); // 0.1f was your initial scale
+}
+
 void Player::MoveBackward(float deltaTime) {
     float velocity = speed * deltaTime;
     if (isSprinting) velocity *= sprintMultiplier;

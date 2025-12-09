@@ -44,6 +44,8 @@ public:
     void MoveRight(float deltaTime);
     void MoveUp(float deltaTime);
     void MoveDown(float deltaTime);
+    void Grow(float amount);
+    float GetCollisionRadius() const;
     
     void SetSprint(bool sprint);
     void UpdateRotation(float xoffset, float yoffset);

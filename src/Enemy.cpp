@@ -51,11 +51,18 @@ void Enemy::Update(float deltaTime, const glm::vec3& playerPos) {
         position.y = startPosition.y + sin(patrolAngle * 2.0f) * 2.0f;
     }
     else if (type == FISH) {
-        // Fish swim in circles like sharks but smaller
-        patrolAngle += speed * 0.15f * deltaTime;
+        // More organic movement
+        // Use startPosition coordinates to offset the phase so they don't all swim in sync
+        float phaseOffset = startPosition.x * 0.5f + startPosition.z * 0.5f;
+        patrolAngle += speed * 0.2f * deltaTime; 
         
-        float newX = startPosition.x + cos(patrolAngle) * patrolRadius;
-        float newZ = startPosition.z + sin(patrolAngle) * patrolRadius;
+        float t = patrolAngle + phaseOffset;
+        
+        // Figure-8 pattern
+        // x = center + R * cos(t)
+        // z = center + R * sin(2t) / 2
+        float newX = startPosition.x + cos(t) * patrolRadius;
+        float newZ = startPosition.z + sin(2.0f * t) * (patrolRadius * 0.5f);
         
         // Calculate movement direction for rotation
         glm::vec3 oldPos = position;
@@ -68,8 +75,8 @@ void Enemy::Update(float deltaTime, const glm::vec3& playerPos) {
             rotationY = atan2(movementDirection.x, movementDirection.z) * 180.0f / 3.14159f;
         }
         
-        // Gentle swimming motion
-        position.y = startPosition.y + sin(patrolAngle * 3.0f) * 1.5f;
+        // Gentle swimming motion (bobbing)
+        position.y = startPosition.y + sin(t * 1.5f) * 1.0f;
     }
     else if (type == HOOK) {
         // Hooks dangle up and down significantly
@@ -87,12 +94,10 @@ void Enemy::Draw(Shader& shader) {
     
     if (type == FISH) {
         // Fix fish orientation
-        // Try standard model correction: Rotate -90 degrees around X axis
-        // This is common for models exported with Z-up (3DS Max) to Y-up (OpenGL)
-        modelMatrix = glm::rotate(modelMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-        
-        // If the fish is still not right, we might need to combine with a Y rotation
-        // But let's try this standard fix first.
+        // 1. Rotate 180 around Z to flip belly/top (applied second to vertex)
+        modelMatrix = glm::rotate(modelMatrix, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        // 2. Rotate 90 around X to bring nose to forward (applied first to vertex)
+        modelMatrix = glm::rotate(modelMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
     }
     
     modelMatrix = glm::scale(modelMatrix, glm::vec3(scale));
