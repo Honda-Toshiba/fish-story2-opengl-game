@@ -6,12 +6,26 @@ in vec3 Normal;
 in vec2 TexCoords;
 in vec3 WorldPos;
 
+// Light structure for multiple lights
+struct Light {
+    vec3 position;
+    vec3 color;
+    float intensity;
+    float radius;
+};
+
 // Uniforms
 uniform vec3 lightPos;
 uniform vec3 viewPos;
 uniform vec3 lightColor;
 uniform vec3 objectColor;
 uniform vec3 skyColor;
+uniform vec3 ambientLight;
+
+// Multiple lights support (for Level 2 anglerfish)
+#define MAX_LIGHTS 8
+uniform Light lights[MAX_LIGHTS];
+uniform int numLights;
 
 // Flags
 uniform bool hasTexture;
@@ -21,6 +35,9 @@ uniform bool isSkybox;
 uniform bool isSun;
 uniform bool isGlowingFish;
 uniform bool isPowerUp;
+uniform bool isCave;
+uniform bool isGlowing;
+uniform float glowIntensity;
 
 uniform sampler2D texture_diffuse1;
 uniform float time;
@@ -50,84 +67,132 @@ float godRays(vec3 pos, vec3 viewDir) {
     return pow(ray, 8.0) * 0.3;
 }
 
+// Calculate lighting from multiple point lights
+vec3 calculateMultipleLights(vec3 norm, vec3 viewDir, vec3 baseColor) {
+    vec3 result = vec3(0.0);
+    
+    // Add contribution from each light
+    for (int i = 0; i < numLights && i < MAX_LIGHTS; i++) {
+        vec3 lightDir = normalize(lights[i].position - FragPos);
+        float distance = length(lights[i].position - FragPos);
+        
+        // Very generous attenuation for maximum visibility
+        float attenuation = lights[i].intensity / (1.0 + 0.02 * distance + 0.001 * distance * distance);
+        attenuation *= smoothstep(lights[i].radius * 2.0, 0.0, distance);
+        
+        // Diffuse - use softer falloff (wrap lighting)
+        float diff = max(dot(norm, lightDir), 0.0);
+        float wrappedDiff = (diff + 0.3) / 1.3; // Wrap lighting to soften shadows
+        vec3 diffuse = wrappedDiff * lights[i].color;
+        
+        // Specular - significantly increased for much brighter wall reflection
+        vec3 reflectDir = reflect(-lightDir, norm);
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0); // Reduced shininess for broader highlights
+        vec3 specular = 3.0 * spec * lights[i].color; // Increased from 1.2 to 3.0 for much brighter walls
+        
+        result += (diffuse + specular) * attenuation;
+    }
+    
+    // Cap the total light contribution to prevent over-brightening with many lights
+    // This prevents the scene from becoming washed out when you collect all anglerfish
+    float maxBrightness = 2.5; // Increased from 1.2 to 2.5 for much brighter cave
+    float currentBrightness = length(result);
+    if (currentBrightness > maxBrightness) {
+        result = normalize(result) * maxBrightness;
+    }
+    
+    return result * baseColor;
+}
+
 void main()
 {
     // 1. SUN LOGIC (The "Glow")
-    // If this is the sun/moon itself, render it bright and unlit.
     if (isSun) {
-        // Simple bloom effect: center is white, edges are colored
         vec3 viewDir = normalize(viewPos - FragPos);
         vec3 norm = normalize(Normal);
         float glow = pow(max(dot(norm, viewDir), 0.0), 3.0);
         vec3 finalColor = mix(objectColor, vec3(1.0), glow);
-        
         FragColor = vec4(finalColor, 1.0);
         return; 
     }
+    
+    // 2. Glowing objects (Anglerfish)
+    if (isGlowing) {
+        vec3 glowColor = objectColor * (1.0 + glowIntensity);
+        FragColor = vec4(glowColor, 1.0);
+        return;
+    }
 
-    // 2. Skybox rendering
+    // 3. Skybox rendering
     if (isSkybox) {
         vec3 underwaterColor = mix(
-            vec3(0.05, 0.15, 0.3),  // Deep blue
-            vec3(0.1, 0.4, 0.6),    // Lighter blue
+            vec3(0.05, 0.15, 0.3),
+            vec3(0.1, 0.4, 0.6),
             smoothstep(-50.0, 50.0, WorldPos.y)
         );
         FragColor = vec4(underwaterColor, 1.0);
         return;
     }
     
-    // --- REAL LIGHT SOURCE PHYSICS ---
-    
-    // Normalize vectors
+    // --- LIGHTING SETUP ---
     vec3 norm = normalize(Normal);
     vec3 lightDir = normalize(lightPos - FragPos);
     vec3 viewDir = normalize(viewPos - FragPos);
     
     // Calculate Distance for "Point Light" behavior
     float distance = length(lightPos - FragPos);
-    
-    // Attenuation (Falloff)
-    // 1.0 / (constant + linear * dist + quadratic * dist^2)
-    // We use very small numbers because your world scale is large (Sun is 100 units away)
     float attenuation = 1.0 / (1.0 + 0.001 * distance + 0.00002 * distance * distance);
     
-    // Ambient lighting (Base brightness)
-    vec3 ambient = 0.3 * lightColor;
+    // Base lighting components
+    vec3 ambient = vec3(0.0);
+    vec3 diffuse = vec3(0.0);
+    vec3 specular = vec3(0.0);
     
-    // Diffuse lighting (Directional brightness)
-    float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = diff * lightColor;
+    // Use multiple lights if in cave mode (Level 2)
+    if (numLights > 0) {
+        // Dark cave ambient
+        ambient = ambientLight;
+        
+        // Add multiple point lights
+        vec3 multiLightResult = calculateMultipleLights(norm, viewDir, vec3(1.0));
+        diffuse = multiLightResult;
+    } else {
+        // Level 1 lighting (sun/moon)
+        ambient = 0.3 * lightColor;
+        
+        float diff = max(dot(norm, lightDir), 0.0);
+        diffuse = diff * lightColor;
+        
+        vec3 reflectDir = reflect(-lightDir, norm);
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 64.0);
+        specular = 1.0 * spec * lightColor;
+        
+        diffuse *= attenuation;
+        specular *= attenuation;
+    }
     
-    // Specular lighting (Shiny reflections)
-    vec3 reflectDir = reflect(-lightDir, norm);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 64.0); // Sharper highlight
-    vec3 specular = 1.0 * spec * lightColor; 
-    
-    // Combine Lighting components and apply Attenuation
-    // Note: Ambient is usually not attenuated in simple engines, but attenuating it
-    // helps the night cycle feel darker when far from the moon.
-    vec3 lighting = (ambient + diffuse + specular) * attenuation;
+    vec3 lighting = ambient + diffuse + specular;
     
     // --- OBJECT MATERIAL LOGIC ---
-    
     vec3 result;
     float alpha = 1.0;
 
-    if (isFloor) {
-        // Floor gets Caustics + Lighting
+    if (isCave) {
+        // Cave walls/floor - simple rocky appearance
+        result = objectColor * lighting;
+    }
+    else if (isFloor) {
+        // Ocean floor gets Caustics + Lighting
         float causticPattern = caustics(FragPos.xz * 0.1, time);
         vec3 causticsColor = vec3(0.2, 0.5, 0.7) * causticPattern * 0.8;
-        
-        // Multiply floor color by lighting, then add caustics on top
         result = objectColor * lighting + causticsColor;
     }
     else if (isWater) {
         // Water Surface gets Lighting + Shimmer
         float shimmer = sin(FragPos.x * 2.0 + time * 3.0) * cos(FragPos.z * 2.0 + time * 2.0);
         vec3 shimmerColor = vec3(0.2, 0.4, 0.6) * shimmer * 0.1;
-        
         result = objectColor * lighting + shimmerColor;
-        alpha = 0.4; // Transparency
+        alpha = 0.4;
     }
     else {
         // Regular objects (Fish, Shells, Enemies)
@@ -135,38 +200,62 @@ void main()
         if (hasTexture) {
             baseColor = texture(texture_diffuse1, TexCoords).rgb;
         }
+        
+        // Apply lighting
         result = baseColor * lighting;
         
         // Add subtle glow to small fish
         if (isGlowingFish) {
             vec3 glowColor = vec3(0.3, 0.5, 0.7); // Cyan-ish glow
-            float glowIntensity = 0.15; // Subtle glow
-            result += glowColor * glowIntensity;
+            float fishGlowIntensity = 0.15; // Subtle glow
+            result += glowColor * fishGlowIntensity;
         }
         
         // Add powerup glow (green for speed, yellow for double score)
         if (isPowerUp) {
-            float glowIntensity = 0.4 + 0.2 * sin(time * 3.0); // Pulsing glow
-            result += powerUpColor * glowIntensity;
+            float powerUpGlowIntensity = 0.4 + 0.2 * sin(time * 3.0); // Pulsing glow
+            result += powerUpColor * powerUpGlowIntensity;
+        }
+        
+        // Add glow effect for bioluminescent objects (Anglerfish, coins)
+        if (isGlowing) {
+            // Add very subtle emissive glow that doesn't wash out the model
+            // Use a soft cyan-blue glow color
+            vec3 glowColor = vec3(0.3, 0.7, 0.9) * glowIntensity;
+            result += glowColor * 0.5; // Even more subtle addition
         }
     }
     
     // --- POST-PROCESSING EFFECTS ---
-
-    // God rays effect
-    float rays = godRays(FragPos, viewDir);
-    result += vec3(0.6, 0.8, 1.0) * rays;
     
-    // Underwater fog effect (Depth-based)
+    // God rays effect (only for Level 1)
+    if (numLights == 0) {
+        float rays = godRays(FragPos, viewDir);
+        result += vec3(0.6, 0.8, 1.0) * rays;
+    }
+    
+    // Fog effect
     float viewDist = length(viewPos - FragPos);
-    float fogFactor = exp(-viewDist * 0.02);
-    fogFactor = clamp(fogFactor, 0.0, 1.0);
+    float fogFactor;
+    vec3 fogColor;
     
-    vec3 fogColor = vec3(0.1, 0.3, 0.5); 
+    if (isCave || numLights > 0) {
+        // Very light cave fog for playability
+        fogFactor = exp(-viewDist * 0.01);  // Very light fog
+        fogColor = vec3(0.15, 0.15, 0.2);   // Much lighter fog color
+    } else {
+        // Underwater fog (Level 1)
+        fogFactor = exp(-viewDist * 0.02);
+        fogColor = vec3(0.1, 0.3, 0.5);
+    }
+    
+    fogFactor = clamp(fogFactor, 0.0, 1.0);
     result = mix(fogColor, result, fogFactor);
     
-    // Final Blue Tint (Underwater Atmosphere)
-    result *= vec3(0.9, 0.95, 1.1);
+    // Blue tint for underwater (Level 1 only)
+    if (numLights == 0 && !isCave) {
+        result *= vec3(0.9, 0.95, 1.1);
+    }
     
     FragColor = vec4(result, alpha);
 }

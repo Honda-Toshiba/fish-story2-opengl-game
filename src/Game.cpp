@@ -602,20 +602,21 @@ void Game::Render() {
     if (!gameOver && !gameWon) {
         shader->use();
 
-        // Send Uniforms
-        glm::mat4 view = camera->GetViewMatrix();
-        glm::mat4 projection = glm::perspective(glm::radians(camera->Zoom),
-                                            (float)screenWidth / (float)screenHeight,
-                                            0.1f, 500.0f);
-        
-        shader->setMat4("view", view);
-        shader->setMat4("projection", projection);
-        
-        shader->setVec3("lightPos", activeLightPos);
-        shader->setVec3("viewPos", camera->Position);
-        shader->setVec3("lightColor", currentLightColor);
-        shader->setVec3("skyColor", currentSkyColor);
-        shader->setFloat("time", glfwGetTime());
+    // Send Uniforms
+    glm::mat4 view = camera->GetViewMatrix();
+    glm::mat4 projection = glm::perspective(glm::radians(camera->Zoom),
+                                           (float)screenWidth / (float)screenHeight,
+                                           0.1f, 500.0f);
+    
+    shader->setMat4("view", view);
+    shader->setMat4("projection", projection);
+    
+    // Send "Real" Light Source Position
+    shader->setVec3("lightPos", activeLightPos);
+    shader->setVec3("viewPos", camera->Position);
+    shader->setVec3("lightColor", currentLightColor);
+    shader->setVec3("skyColor", currentSkyColor);
+    shader->setFloat("time", glfwGetTime());
 
         // Draw Sun
         if (sunPos.y > -20.0f) {

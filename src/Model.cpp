@@ -4,10 +4,11 @@
 #include "stb_image.h"
 
 // Mesh implementation
-Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture> textures) {
+Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture> textures, glm::vec3 matColor) {
     this->vertices = vertices;
     this->indices = indices;
     this->textures = textures;
+    this->materialColor = matColor;
     setupMesh();
 }
 
@@ -54,6 +55,9 @@ void Mesh::Draw(Shader &shader) {
     }
     
     shader.setBool("hasTexture", hasTexture);
+    
+    // Set material color for models without textures (like treasure chest with .mtl colors)
+    shader.setVec3("objectColor", materialColor);
 
     for(unsigned int i = 0; i < textures.size(); i++) {
         glActiveTexture(GL_TEXTURE0 + i);
@@ -150,13 +154,18 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene) {
     
     aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
     
+    // Get material diffuse color
+    aiColor3D diffuseColor(0.8f, 0.8f, 0.8f); // Default gray
+    material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColor);
+    glm::vec3 matColor(diffuseColor.r, diffuseColor.g, diffuseColor.b);
+    
     std::vector<Texture> diffuseMaps = loadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_diffuse");
     textures.insert(textures.end(), diffuseMaps.begin(), diffuseMaps.end());
     
     std::vector<Texture> specularMaps = loadMaterialTextures(material, aiTextureType_SPECULAR, "texture_specular");
     textures.insert(textures.end(), specularMaps.begin(), specularMaps.end());
 
-    return Mesh(vertices, indices, textures);
+    return Mesh(vertices, indices, textures, matColor);
 }
 
 std::vector<Texture> Model::loadMaterialTextures(aiMaterial *mat, aiTextureType type, std::string typeName) {

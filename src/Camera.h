@@ -68,8 +68,14 @@ public:
     // Processes input received from a mouse scroll-wheel event
     void ProcessMouseScroll(float yoffset);
     
-    // Update camera to follow player
-    void FollowPlayer(const glm::vec3& playerPos, const glm::vec3& playerFront, float deltaTime, float playerScale);
+    // Update camera to follow player with bounds checking
+    void FollowPlayer(const glm::vec3& playerPos, const glm::vec3& playerFront, float deltaTime, float playerScale,
+                      float minX = -1000.0f, float maxX = 1000.0f, 
+                      float minY = -1000.0f, float maxY = 1000.0f, 
+                      float minZ = -1000.0f, float maxZ = 1000.0f);
+    
+    // Constrain camera position within bounds
+    void ConstrainToBounds(float minX, float maxX, float minY, float maxY, float minZ, float maxZ);
     
     // Toggle camera mode
     void ToggleMode();

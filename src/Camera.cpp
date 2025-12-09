@@ -57,7 +57,8 @@ void Camera::ProcessMouseScroll(float yoffset) {
         Zoom = 45.0f;
 }
 
-void Camera::FollowPlayer(const glm::vec3& playerPos, const glm::vec3& playerFront, float deltaTime, float playerScale) {
+void Camera::FollowPlayer(const glm::vec3& playerPos, const glm::vec3& playerFront, float deltaTime, float playerScale,
+                          float minX, float maxX, float minY, float maxY, float minZ, float maxZ) {
     if (mode == FIRST_PERSON) {
         // First person - adjust eye height based on fish size
         // Base height 0.5f scaled up
@@ -68,20 +69,47 @@ void Camera::FollowPlayer(const glm::vec3& playerPos, const glm::vec3& playerFro
         Front = playerFront;
         Up = glm::vec3(0.0f, 1.0f, 0.0f);
     } else {
-        // Third person - orbit camera
+        // Third person - orbit camera with collision detection
         
         // DYNAMIC CAMERA DISTANCE
         // Base distance is 20.0f at scale 0.1f
         // As scale increases, we push the camera back linearly
         float scaleFactor = playerScale / 0.1f; // 1.0 at start, increases as you grow
         
-        // Calculate new distance and height
-        // We use a formula: Base + (Growth * Multiplier)
-        float distance = 20.0f + (playerScale - 0.1f) * 40.0f; 
+        // Calculate desired distance and height
+        float desiredDistance = 20.0f + (playerScale - 0.1f) * 40.0f; 
         float height = 3.0f + (playerScale - 0.1f) * 10.0f;
         
-        // Camera position based on its own orientation (not player's)
-        glm::vec3 offset = -Front * distance;
+        // Camera offset based on its own orientation (not player's)
+        glm::vec3 direction = -Front;
+        
+        // Try to find the maximum safe distance by checking for wall collisions
+        float safeDistance = desiredDistance;
+        float minDistance = 2.0f; // Minimum zoom distance
+        
+        // Check if the desired camera position would be out of bounds
+        for (float testDist = desiredDistance; testDist >= minDistance; testDist -= 0.5f) {
+            glm::vec3 testOffset = direction * testDist;
+            testOffset.y += height;
+            glm::vec3 testPos = playerPos + testOffset;
+            
+            // Check if this position is within bounds
+            if (testPos.x >= minX && testPos.x <= maxX &&
+                testPos.y >= minY && testPos.y <= maxY &&
+                testPos.z >= minZ && testPos.z <= maxZ) {
+                safeDistance = testDist;
+                break;
+            }
+            
+            // If we've reached minimum distance, use it
+            if (testDist <= minDistance) {
+                safeDistance = minDistance;
+                break;
+            }
+        }
+        
+        // Apply the safe distance
+        glm::vec3 offset = direction * safeDistance;
         offset.y += height;
         
         Position = playerPos + offset;
@@ -98,6 +126,13 @@ void Camera::ToggleMode() {
     } else {
         mode = FIRST_PERSON;
     }
+}
+
+void Camera::ConstrainToBounds(float minX, float maxX, float minY, float maxY, float minZ, float maxZ) {
+    // Clamp camera position to stay within bounds
+    Position.x = glm::clamp(Position.x, minX, maxX);
+    Position.y = glm::clamp(Position.y, minY, maxY);
+    Position.z = glm::clamp(Position.z, minZ, maxZ);
 }
 
 void Camera::updateCameraVectors() {
