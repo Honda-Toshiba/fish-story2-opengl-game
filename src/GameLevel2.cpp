@@ -109,8 +109,9 @@ bool GameLevel2::Initialize() {
     player->yaw = 0.0f; // Face forward into cave
     
     // Set player boundaries based on cave size
+    // Increased ceiling margin to prevent camera clipping through ceiling
     player->SetBoundaries(-cave->GetWidth()/2 + 2.0f, cave->GetWidth()/2 - 2.0f,
-                          2.0f, cave->GetHeight() - 2.0f,
+                          2.0f, cave->GetHeight() - 4.0f,
                           0.0f, cave->GetLength() - 5.0f);
     
     // Load Anglerfish model (now using the actual model!)
@@ -379,7 +380,9 @@ void GameLevel2::Update() {
     
     // Update camera to follow player with cave bounds for collision detection
     // Add margin to prevent camera from clipping through walls
+    // Increased ceiling margin to 4.0f to prevent clipping when player is high
     float margin = 2.0f;
+    float ceilingMargin = 4.0f;
     camera->FollowPlayer(
         player->position, 
         player->front, 
@@ -388,7 +391,7 @@ void GameLevel2::Update() {
         -cave->GetWidth()/2.0f + margin,  // minX
         cave->GetWidth()/2.0f - margin,    // maxX
         margin,                             // minY (above floor)
-        cave->GetHeight() - margin,         // maxY (below ceiling)
+        cave->GetHeight() - ceilingMargin,  // maxY (below ceiling)
         margin,                             // minZ (past front wall)
         cave->GetLength() - margin          // maxZ (before back wall)
     );
