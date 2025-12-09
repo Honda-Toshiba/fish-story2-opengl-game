@@ -1,6 +1,7 @@
 #include "GameLevel2.h"
 #include <iostream>
 #include <cmath>
+#include <cstdlib>
 
 // Static pointer for callbacks
 static GameLevel2* gameLevel2Instance = nullptr;
@@ -10,7 +11,8 @@ GameLevel2::GameLevel2(int width, int height)
       deltaTime(0.0f), lastFrame(0.0f),
       lastX(width / 2.0f), lastY(height / 2.0f), firstMouse(true),
       leftMousePressed(false), score(0), anglerfishCollected(0),
-      gameOver(false), gameWon(false) {
+      gameOver(false), gameWon(false),
+      stalactiteSpawnTimer(0.0f), stalactiteSpawnInterval(5.0f) {
     
     gameLevel2Instance = this;
     
@@ -106,6 +108,11 @@ bool GameLevel2::Initialize() {
     std::string coinPath = "models/Coin Dollar Sign/CoinDollarSign.obj";
     coinModel = std::make_unique<Model>(coinPath);
     std::cout << "Loaded coin model from: " << coinPath << std::endl;
+    
+    // Load Stalactite model
+    std::string stalactitePath = "models/Rock (1)/PUSHILIN_rock.obj";
+    stalactiteModel = std::make_unique<Model>(stalactitePath);
+    std::cout << "Loaded stalactite model from: " << stalactitePath << std::endl;
     
     // Spawn anglerfish throughout the cave
     SpawnAnglerfish();
@@ -352,6 +359,32 @@ void GameLevel2::Update() {
         }
     }
     
+    // Update stalactites
+    for (auto it = stalactites.begin(); it != stalactites.end();) {
+        (*it)->Update(deltaTime);
+        
+        // Check collision with player
+        if ((*it)->CheckCollision(player->position, 2.0f)) {
+            std::cout << "*** GAME OVER! *** Hit by stalactite!" << std::endl;
+            gameOver = true;
+            return;
+        }
+        
+        // Remove inactive stalactites
+        if (!(*it)->IsActive()) {
+            it = stalactites.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    
+    // Spawn new stalactites periodically
+    stalactiteSpawnTimer += deltaTime;
+    if (stalactiteSpawnTimer >= stalactiteSpawnInterval) {
+        SpawnStalactite();
+        stalactiteSpawnTimer = 0.0f;
+    }
+    
     // Check win condition - reached the end of the cave (backup)
     if (player->position.z >= cave->GetLength() - 5.0f && !gameWon) {
         std::cout << "*** YOU WIN! *** You made it through the cave!" << std::endl;
@@ -452,6 +485,11 @@ void GameLevel2::Render() {
         crab->Draw(*shader);
     }
     
+    // Draw stalactites
+    for (auto& stalactite : stalactites) {
+        stalactite->Draw(*shader);
+    }
+    
     // Draw treasure chest and coins
     if (treasureChest) {
         treasureChest->Draw(*shader);
@@ -512,4 +550,41 @@ void GameLevel2::KeyCallback(GLFWwindow* window, int key, int scancode, int acti
 void GameLevel2::ScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
     if (!gameLevel2Instance) return;
     gameLevel2Instance->camera->ProcessMouseScroll(static_cast<float>(yoffset));
+}
+
+void GameLevel2::SpawnStalactite() {
+    // Spawn 2-4 stalactites at random positions throughout the cave
+    int numStalactites = 2 + (rand() % 3); // 2, 3, or 4 stalactites
+    
+    float caveWidth = cave->GetWidth();
+    float caveHeight = cave->GetHeight();
+    float caveLength = cave->GetLength();
+    
+    for (int i = 0; i < numStalactites; i++) {
+        // Random X position within cave width
+        float randomX = ((float)rand() / RAND_MAX - 0.5f) * (caveWidth - 4.0f);
+        
+        // Spawn anywhere from current player position to end of cave
+        // This creates stalactites both near and far from the player
+        float minZ = player->position.z - 10.0f; // Some behind
+        float maxZ = caveLength - 20.0f; // Not too close to end
+        
+        // Clamp minZ to valid range
+        if (minZ < 10.0f) minZ = 10.0f;
+        
+        float spawnZ = minZ + ((float)rand() / RAND_MAX) * (maxZ - minZ);
+        
+        // Start at ceiling
+        float spawnY = caveHeight - 1.0f;
+        
+        glm::vec3 spawnPos(randomX, spawnY, spawnZ);
+        
+        // Random hang time between 1.0 and 4.0 seconds
+        float hangTime = 1.0f + ((float)rand() / RAND_MAX) * 3.0f;
+        
+        stalactites.push_back(std::make_unique<Stalactite>(stalactiteModel.get(), spawnPos, hangTime));
+        
+        std::cout << "Stalactite " << (i+1) << "/" << numStalactites << " spawned at (" 
+                  << randomX << ", " << spawnY << ", " << spawnZ << ") - hang time: " << hangTime << "s" << std::endl;
+    }
 }

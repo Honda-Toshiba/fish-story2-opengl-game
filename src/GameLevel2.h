@@ -18,6 +18,7 @@
 #include "Anglerfish.h"
 #include "Crab.h"
 #include "TreasureChest.h"
+#include "Stalactite.h"
 #include "Model.h"
 
 class GameLevel2 {
@@ -47,12 +48,14 @@ private:
     std::vector<std::unique_ptr<Anglerfish>> anglerfish;
     std::vector<std::unique_ptr<Crab>> crabs;
     std::unique_ptr<TreasureChest> treasureChest;
+    std::vector<std::unique_ptr<Stalactite>> stalactites;
     
     // Model resources
     std::unique_ptr<Model> anglerfishModel;
     std::unique_ptr<Model> crabModel;
     std::unique_ptr<Model> treasureChestModel;
     std::unique_ptr<Model> coinModel;
+    std::unique_ptr<Model> stalactiteModel;
     
     int score;
     int anglerfishCollected;
@@ -72,6 +75,10 @@ private:
     bool keys[1024];
     bool leftMousePressed;
     
+    // Stalactite spawning
+    float stalactiteSpawnTimer;
+    float stalactiteSpawnInterval;
+    
     void ProcessInput();
     void Update();
     void Render();
@@ -79,6 +86,7 @@ private:
     void SetupOpenGL();
     void SpawnAnglerfish();
     void SpawnCrabs();
+    void SpawnStalactite();
 };
 
 #endif
