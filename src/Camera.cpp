@@ -62,7 +62,9 @@ void Camera::FollowPlayer(const glm::vec3& playerPos, const glm::vec3& playerFro
         // First person - adjust eye height based on fish size
         // Base height 0.5f scaled up
         float eyeHeight = 0.5f + (playerScale - 0.1f) * 2.0f;
-        Position = playerPos + glm::vec3(0.0f, eyeHeight, 0.0f);
+        // Position camera slightly forward (2.0 units) so it's at the fish's eyes/front
+        float forwardOffset = 2.0f * (playerScale / 0.1f);
+        Position = playerPos + glm::vec3(0.0f, eyeHeight, 0.0f) + playerFront * forwardOffset;
         Front = playerFront;
         Up = glm::vec3(0.0f, 1.0f, 0.0f);
     } else {

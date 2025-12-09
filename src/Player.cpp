@@ -68,7 +68,7 @@ void Player::Draw(Shader& shader) {
     model->Draw(shader);
 }
 
-void Player::MoveInDirection(const glm::vec3& direction, float deltaTime) {
+void Player::MoveInDirection(const glm::vec3& direction, float deltaTime, bool rotateToFaceDirection) {
     float velocity = speed * deltaTime;
     if (isSprinting) velocity *= sprintMultiplier;
     if (isBoostActive) velocity *= boostMultiplier;
@@ -76,20 +76,23 @@ void Player::MoveInDirection(const glm::vec3& direction, float deltaTime) {
     // Move in the given direction
     position += direction * velocity;
     
-    // Smoothly rotate fish to face movement direction
-    // Calculate target yaw from direction (negate because of our rotation setup)
-    float targetYaw = -atan2(direction.x, direction.z) * 180.0f / 3.14159f;
-    
-    // Smooth interpolation towards target yaw (like pitch system)
-    float yawDiff = targetYaw - yaw;
-    // Normalize angle difference to [-180, 180]
-    while (yawDiff > 180.0f) yawDiff -= 360.0f;
-    while (yawDiff < -180.0f) yawDiff += 360.0f;
-    
-    // Apply smooth interpolation (adjust 3.0f higher for faster, lower for slower)
-    yaw += yawDiff * 5.0f * deltaTime;
-    
-    updateVectors();
+    // Only rotate to face movement direction in third-person mode
+    if (rotateToFaceDirection) {
+        // Smoothly rotate fish to face movement direction
+        // Calculate target yaw from direction (negate because of our rotation setup)
+        float targetYaw = -atan2(direction.x, direction.z) * 180.0f / 3.14159f;
+        
+        // Smooth interpolation towards target yaw (like pitch system)
+        float yawDiff = targetYaw - yaw;
+        // Normalize angle difference to [-180, 180]
+        while (yawDiff > 180.0f) yawDiff -= 360.0f;
+        while (yawDiff < -180.0f) yawDiff += 360.0f;
+        
+        // Apply smooth interpolation (adjust 3.0f higher for faster, lower for slower)
+        yaw += yawDiff * 5.0f * deltaTime;
+        
+        updateVectors();
+    }
 }
 
 void Player::MoveForward(float deltaTime) {
