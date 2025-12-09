@@ -24,7 +24,7 @@ GameLevel2::GameLevel2(int width, int height)
 GameLevel2::~GameLevel2() {
     if (window) {
         glfwDestroyWindow(window);
-        glfwTerminate();
+        // Don't call glfwTerminate here - let main() handle it
     }
 }
 
@@ -86,6 +86,7 @@ bool GameLevel2::Initialize() {
     if (audio->Initialize()) {
         audio->LoadSound("cave-ambience", "audio/cave-ambience.mp3", true);
         audio->LoadSound("coin", "audio/coin.wav", false);
+        audio->LoadSound("coin-spill", "audio/coin-spill.mp3");
         audio->LoadSound("crunch", "audio/crunch.mp3", false);
         audio->LoadSound("hook", "audio/hook.mp3", false);
         audio->Play("cave-ambience");

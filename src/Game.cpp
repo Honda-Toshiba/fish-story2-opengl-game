@@ -10,7 +10,8 @@ Game::Game(int width, int height)
     : screenWidth(width), screenHeight(height), window(nullptr),
       deltaTime(0.0f), lastFrame(0.0f),
       lastX(width / 2.0f), lastY(height / 2.0f), firstMouse(true),
-      leftMousePressed(false), score(0.0f), gameOver(false), gameWon(false), targetScale(0.2f),
+      leftMousePressed(false), score(0.0f), gameOver(false), gameWon(false), 
+      shouldTransitionToLevel2(false), targetScale(0.2),
       speedBoostActive(false), speedBoostTimer(0.0f), speedBoostDuration(10.0f),
       doubleScoreActive(false), doubleScoreTimer(0.0f), doubleScoreDuration(15.0f) {
     
@@ -24,7 +25,7 @@ Game::Game(int width, int height)
 Game::~Game() {
     if (window) {
         glfwDestroyWindow(window);
-        glfwTerminate();
+        // Don't call glfwTerminate here - let main() handle it
     }
 }
 
@@ -288,12 +289,10 @@ void Game::ProcessInput() {
         // audio->Play("dash"); 
     }
             
-    // T key for next level (restarts for now)
+    // T key to transition to Level 2
     if (gameWon && glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
-        gameWon = false;
-        gameOver = false;
-        score = 0;
-        player->position = glm::vec3(0.0f, -20.0f, 0.0f);
+        shouldTransitionToLevel2 = true;
+        glfwSetWindowShouldClose(window, true);
     }
 }
 
@@ -676,13 +675,15 @@ void Game::Render() {
     }
     else if (gameWon) {
         std::string msg1 = "LEVEL 1 COMPLETE!";
-        std::string msg2 = "Press 'R' to Continue";
+        std::string msg2 = "Press 'T' to go to Level 2";
+        std::string msg3 = "Press 'R' to Restart";
         float centerX = screenWidth / 2.0f;
         float centerY = screenHeight / 2.0f;
         
         // Draw Gold Text on Green Background
-        textRenderer->RenderText(msg1, centerX - 190.0f, centerY + 20.0f, 2.0f, glm::vec3(1.0f, 0.9f, 0.0f));
-        textRenderer->RenderText(msg2, centerX - 190.0f, centerY - 50.0f, 1.2f, glm::vec3(1.0f, 1.0f, 1.0f));
+        textRenderer->RenderText(msg1, centerX - 190.0f, centerY + 40.0f, 2.0f, glm::vec3(1.0f, 0.9f, 0.0f));
+        textRenderer->RenderText(msg2, centerX - 200.0f, centerY - 20.0f, 1.2f, glm::vec3(0.5f, 1.0f, 0.5f));
+        textRenderer->RenderText(msg3, centerX - 160.0f, centerY - 60.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
     }
     else {
         // 1. Standard Stats (Top Left)
