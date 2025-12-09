@@ -71,6 +71,10 @@ bool Game::Initialize() {
     
     SetupOpenGL();
     
+    textShader = std::make_unique<Shader>("shaders/text.vert", "shaders/text.frag");
+    textRenderer = std::make_unique<TextRenderer>(screenWidth, screenHeight, textShader.get());
+
+    textRenderer->Load("models/font_atlas.png", 32);
     // Initialize game objects
     shader = std::make_unique<Shader>("shaders/vertex.glsl", "shaders/fragment.glsl");
     ocean = std::make_unique<Ocean>(100.0f, 50.0f);
@@ -318,9 +322,7 @@ void Game::Update() {
     }
 
     // 6. Update HUD (Window Title)
-    std::string title = "Fish Story 2 | Score: " + std::to_string(score) + 
-                        " | Size: " + std::to_string(player->scale) + 
-                        " / " + std::to_string(targetScale);
+    std::string title = "Fish Story 2";
     glfwSetWindowTitle(window, title.c_str());
 }
 
@@ -451,6 +453,31 @@ void Game::Render() {
     for (auto& enemy : enemies) enemy->Draw(*shader);
     
     player->Draw(*shader);
+
+    // ---------------------------------------------
+    // 6. DRAW HUD (Text)
+    // ---------------------------------------------
+    // Enable blending for transparent text background
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    // Draw Score
+    std::string scoreText = "Score: " + std::to_string(score);
+    textRenderer->RenderText(scoreText, 20.0f, screenHeight - 50.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+    
+    // Draw Size Goal
+    std::string sizeText = "Size: " + std::to_string(player->scale).substr(0, 3) + " / " + std::to_string(targetScale).substr(0, 3);
+    textRenderer->RenderText(sizeText, 20.0f, screenHeight - 90.0f, 1.0f, glm::vec3(0.5f, 0.8f, 1.0f)); // Cyan color
+
+    // Draw Win/Loss Message
+    if (gameOver) {
+        textRenderer->RenderText("GAME OVER - Press R", screenWidth/2.0f - 200.0f, screenHeight/2.0f, 2.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+    }
+    else if (gameWon) {
+        textRenderer->RenderText("YOU WIN! - Press R", screenWidth/2.0f - 200.0f, screenHeight/2.0f, 2.0f, glm::vec3(1.0f, 0.8f, 0.0f));
+    }
+    
+    glDisable(GL_BLEND);
 }
 
 // Callback implementations

@@ -16,6 +16,7 @@
 #include "Shader.h"
 #include "Collectible.h"
 #include "Enemy.h"
+#include "TextRenderer.h"
 #include <vector>
 
 class Game {
@@ -44,6 +45,8 @@ private:
     std::vector<std::unique_ptr<Collectible>> collectibles;
     std::vector<std::unique_ptr<Enemy>> enemies;
     std::unique_ptr<Model> sunModel;
+    std::unique_ptr<Shader> textShader;
+    std::unique_ptr<TextRenderer> textRenderer;
 
     int score;
     bool gameOver;
