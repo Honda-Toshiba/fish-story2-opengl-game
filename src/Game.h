@@ -17,6 +17,7 @@
 #include "Collectible.h"
 #include "Enemy.h"
 #include "TextRenderer.h"
+#include "AudioEngine.h"
 #include <vector>
 
 class Game {
@@ -26,6 +27,7 @@ public:
     
     bool Initialize();
     void Run();
+    void ResetLevel();
     
     // Callbacks
     static void FramebufferSizeCallback(GLFWwindow* window, int width, int height);
@@ -47,6 +49,7 @@ private:
     std::unique_ptr<Model> sunModel;
     std::unique_ptr<Shader> textShader;
     std::unique_ptr<TextRenderer> textRenderer;
+    std::unique_ptr<AudioEngine> audio;
 
     float score;
     bool gameOver;

@@ -10,7 +10,7 @@ Player::Player(const std::string& modelPath)
       pitch(0.0f),
       scale(0.1f),  // Scale down the model - most 3D models are quite large
       speed(10.0f),
-      sprintMultiplier(2.0f),
+      sprintMultiplier(1.0f),
       isSprinting(false),
       isBoostActive(false),
       boostMultiplier(3.5f),  // Boost is 3.5x normal speed

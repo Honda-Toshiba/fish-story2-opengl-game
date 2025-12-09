@@ -16,6 +16,7 @@ set(SOURCES
     src/Collectible.cpp
     src/Enemy.cpp
     src/TextRenderer.cpp
+    src/AudioEngine.cpp  # <--- ADDED THIS
 )
 
 set(HEADERS
@@ -28,6 +29,7 @@ set(HEADERS
     src/Collectible.h
     src/Enemy.h
     src/TextRenderer.h
+    src/AudioEngine.h    # <--- ADDED THIS
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
@@ -40,16 +42,11 @@ target_link_libraries(${PROJECT_NAME} OpenGL::GL)
 find_package(glfw3 REQUIRED)
 target_link_libraries(${PROJECT_NAME} glfw)
 
-# GLEW - different handling for Windows vs Linux
-if(WIN32)
-    find_package(GLEW REQUIRED)
-    target_link_libraries(${PROJECT_NAME} GLEW::GLEW)
-else()
-    find_package(GLEW REQUIRED)
-    target_link_libraries(${PROJECT_NAME} GLEW::GLEW)
-endif()
+# GLEW
+find_package(GLEW REQUIRED)
+target_link_libraries(${PROJECT_NAME} GLEW::GLEW)
 
-# GLM (header-only library) - just need include path
+# GLM
 find_path(GLM_INCLUDE_DIR glm/glm.hpp
     HINTS /usr/include /usr/local/include)
 if(GLM_INCLUDE_DIR)
@@ -59,22 +56,29 @@ else()
     message(FATAL_ERROR "GLM not found")
 endif()
 
-# ASSIMP for model loading
+# ASSIMP
 find_package(assimp REQUIRED)
 target_link_libraries(${PROJECT_NAME} assimp)
 
 # Copy assets to build directory
+# We added 'audio' and 'textures' folders recently, so we copy those too
 file(COPY ${CMAKE_SOURCE_DIR}/models DESTINATION ${CMAKE_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/shaders DESTINATION ${CMAKE_BINARY_DIR})
+# Copy the new asset folders if they exist
+if(EXISTS "${CMAKE_SOURCE_DIR}/audio")
+    file(COPY ${CMAKE_SOURCE_DIR}/audio DESTINATION ${CMAKE_BINARY_DIR})
+endif()
+if(EXISTS "${CMAKE_SOURCE_DIR}/textures")
+    file(COPY ${CMAKE_SOURCE_DIR}/textures DESTINATION ${CMAKE_BINARY_DIR})
+endif()
 
 # Platform-specific settings
 if(WIN32)
-    # Windows-specific settings
     set_target_properties(${PROJECT_NAME} PROPERTIES
         WIN32_EXECUTABLE OFF
     )
 elseif(UNIX AND NOT APPLE)
-    # Linux-specific settings
+    # Linux-specific settings (miniaudio needs dl and pthread)
     target_link_libraries(${PROJECT_NAME} ${CMAKE_DL_LIBS} pthread)
 endif()
 

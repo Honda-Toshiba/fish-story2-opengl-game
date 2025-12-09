@@ -1,5 +1,7 @@
 #include "Game.h"
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 
 // Static pointer for callbacks
 static Game* gameInstance = nullptr;
@@ -8,7 +10,7 @@ Game::Game(int width, int height)
     : screenWidth(width), screenHeight(height), window(nullptr),
       deltaTime(0.0f), lastFrame(0.0f),
       lastX(width / 2.0f), lastY(height / 2.0f), firstMouse(true),
-      leftMousePressed(false), score(0.0f), gameOver(false), gameWon(false), targetScale(2.0f),
+      leftMousePressed(false), score(0.0f), gameOver(false), gameWon(false), targetScale(0.2f),
       speedBoostActive(false), speedBoostTimer(0.0f), speedBoostDuration(10.0f),
       doubleScoreActive(false), doubleScoreTimer(0.0f), doubleScoreDuration(15.0f) {
     
@@ -27,6 +29,17 @@ Game::~Game() {
 }
 
 bool Game::Initialize() {
+    audio = std::make_unique<AudioEngine>();
+    if (audio->Initialize()) {
+        // Make sure you have these files in an 'audio' folder!
+        audio->LoadSound("bubbles", "audio/bubbles.mp3", true); // Loop = true
+        audio->LoadSound("crunch", "audio/crunch.mp3", false);  // One-shot
+        audio->LoadSound("damage", "audio/damage.mp3", false);
+        audio->LoadSound("hook", "audio/hook.mp3", false);
+        
+        // Start ambient noise immediately [cite: 36]
+        audio->Play("bubbles");
+    }
     // Initialize GLFW
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW" << std::endl;
@@ -222,14 +235,7 @@ void Game::Run() {
 void Game::ProcessInput() {
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
         if (gameOver || gameWon) {
-            // Reset Logic
-            gameOver = false;
-            gameWon = false;
-            score = 0.0f;
-            player->scale = 0.1f; // Reset size
-            player->position = glm::vec3(0.0f, -20.0f, 0.0f);
-            std::cout << "Game Restarted!" << std::endl;
-            // Ideally, you would respawn eaten fish here too
+            ResetLevel();
         }
     }
 
@@ -291,6 +297,92 @@ void Game::ProcessInput() {
     }
 }
 
+void Game::ResetLevel() {
+    // 1. Reset Player & Game State
+    gameOver = false;
+    gameWon = false;
+    score = 0.0f;
+    
+    player->scale = 0.1f;
+    player->position = glm::vec3(0.0f, -20.0f, 0.0f);
+    player->speed = 10.0f; // Reset speed (in case boost was active)
+    
+    // Reset Powerups
+    speedBoostActive = false;
+    doubleScoreActive = false;
+    speedBoostTimer = 0.0f;
+    doubleScoreTimer = 0.0f;
+
+    // 2. Clear Old Entities
+    enemies.clear();
+    collectibles.clear();
+
+    // 3. RESPATCH COLLECTIBLES (Shells)
+    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(10.0f, -25.0f, 10.0f), 0.5f, SPEED_BOOST));
+    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(-15.0f, -20.0f, 5.0f), 0.5f, SPEED_BOOST));
+    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(5.0f, -30.0f, -15.0f), 0.5f, SPEED_BOOST));
+    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(-20.0f, -15.0f, -20.0f), 0.5f, DOUBLE_SCORE));
+    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(25.0f, -22.0f, 0.0f), 0.5f, DOUBLE_SCORE));
+
+    // 4. RESPATCH ENEMIES (Fish, Sharks, Hooks)
+    float fishScale = 0.15f; 
+    
+    // Edible Fish
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(15.0f, -18.0f, 20.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-20.0f, -25.0f, 15.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(30.0f, -12.0f, -25.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-35.0f, -20.0f, -10.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(8.0f, -30.0f, 12.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-12.0f, -15.0f, 30.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(25.0f, -28.0f, -18.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-28.0f, -22.0f, 22.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(18.0f, -16.0f, -8.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-8.0f, -35.0f, -20.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(40.0f, -20.0f, 8.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-40.0f, -18.0f, -15.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(5.0f, -24.0f, 35.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-15.0f, -28.0f, -30.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(32.0f, -14.0f, 18.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-25.0f, -32.0f, 5.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(10.0f, -19.0f, -28.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-18.0f, -26.0f, 28.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(28.0f, -22.0f, -12.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-32.0f, -16.0f, 18.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(12.0f, -33.0f, -5.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-5.0f, -20.0f, -35.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(35.0f, -25.0f, 25.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-22.0f, -30.0f, -8.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(22.0f, -17.0f, 15.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-10.0f, -23.0f, 32.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(38.0f, -29.0f, -22.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-38.0f, -19.0f, 12.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(2.0f, -27.0f, -18.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-16.0f, -21.0f, 8.0f), FISH, fishScale));
+
+    // Sharks
+    enemies.push_back(std::make_unique<Enemy>(sharkModel.get(), glm::vec3(35.0f, -15.0f, 35.0f), SHARK, 1.5f));
+    enemies.push_back(std::make_unique<Enemy>(sharkModel.get(), glm::vec3(-35.0f, -15.0f, 35.0f), SHARK, 1.5f));
+    enemies.push_back(std::make_unique<Enemy>(sharkModel.get(), glm::vec3(35.0f, -15.0f, -35.0f), SHARK, 1.5f));
+    enemies.push_back(std::make_unique<Enemy>(sharkModel.get(), glm::vec3(-35.0f, -15.0f, -35.0f), SHARK, 1.5f));
+
+    // Hooks
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(20.0f, -12.0f, 25.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(-25.0f, -18.0f, -20.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(40.0f, -15.0f, -15.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(-30.0f, -20.0f, 30.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(0.0f, -10.0f, -35.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(15.0f, -22.0f, 0.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(-40.0f, -14.0f, 10.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(30.0f, -25.0f, -30.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(-15.0f, -16.0f, 40.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(5.0f, -28.0f, 15.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(-5.0f, -11.0f, -25.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(35.0f, -19.0f, 20.0f), HOOK, 0.03f));
+
+    std::cout << "Game Level Reset!" << std::endl;
+    audio->Play("bubbles");
+}
+
 void Game::Update() {
     // 1. Stop updating if game is over
     if (gameOver || gameWon) return;
@@ -340,15 +432,29 @@ void Game::Update() {
     // 4. Update Enemies & Check Collisions
     float playerRadius = player->GetCollisionRadius();
     
+    float minFishDistance = 1000.0f;
+
     for (auto it = enemies.begin(); it != enemies.end(); ) {
         (*it)->Update(deltaTime, player->position);
         
         // CASE A: Edible Fish - touch to eat
         if ((*it)->GetType() == FISH) {
+            // Calculate distance for Audio Logic
+            float dist = glm::distance((*it)->GetPosition(), player->position);
+            if (dist < minFishDistance) {
+                minFishDistance = dist;
+            }
+
+            // Check collision for Eating Logic
             if ((*it)->CheckCollision(player->position, playerRadius)) {
                 float scoreGain = 0.5f;
-                if (doubleScoreActive) scoreGain *= 2.0f; // Double score powerup
+                player->scale += 0.005f;
+                if (doubleScoreActive) scoreGain *= 2.0f; 
                 score += scoreGain;
+                
+                // Play crunch sound on eat
+                audio->Play("crunch");
+                
                 it = enemies.erase(it); // Remove eaten fish
                 continue;
             }
@@ -356,6 +462,20 @@ void Game::Update() {
         // CASE B: Dangerous Enemies (Shark/Hook) - touch to die
         else {
             if ((*it)->CheckCollision(player->position, playerRadius)) {
+                if (!gameOver) {
+                    // --- NEW: Play specific sound based on enemy type ---
+                    if ((*it)->GetType() == SHARK) {
+                        audio->Play("crunch"); // Shark bite
+                        audio->Play("damage"); // Generic hit
+                    } 
+                    else if ((*it)->GetType() == HOOK) {
+                        audio->Play("hook");   // Metal hook sound
+                        // You can play "damage" here too if you want, 
+                        // or just let the hook sound stand alone.
+                    }
+                    audio->Stop("bubbles"); // Stop ambience for dramatic effect
+                }
+                
                 std::cout << "!!! GAME OVER !!! You were caught by a " 
                          << ((*it)->GetType() == SHARK ? "shark" : "hook") << "!" << std::endl;
                 std::cout << "Final Score: " << score << std::endl;
@@ -366,8 +486,27 @@ void Game::Update() {
         ++it;
     }
 
+    // --- NEW: ADJUST BUBBLE VOLUME BASED ON PROXIMITY ---
+    if (!gameOver && !gameWon) {
+        float maxHearingDist = 25.0f; // Distance where sound fades to 0
+        float volume = 0.0f;
+
+        if (minFishDistance < maxHearingDist) {
+            // Linear fade: 1.0 (Close) -> 0.0 (Far)
+            volume = 1.0f - (minFishDistance / maxHearingDist);
+        }
+
+        // Clamp volume to be safe
+        volume = std::max(0.0f, std::min(volume, 1.0f));
+        
+        // Optional: Keep a tiny bit of background noise always (e.g. 0.05)
+        // volume = std::max(0.05f, volume);
+
+        audio->SetVolume("bubbles", volume);
+    }
+
     // 5. Check WIN Condition (Score-based)
-    if (score >= 2.0f) {
+    if (player->scale >= targetScale) {
         std::cout << "*** YOU WIN! *** You collected enough fish!" << std::endl;
         std::cout << "Final Score: " << score << std::endl;
         gameWon = true;
@@ -506,27 +645,54 @@ void Game::Render() {
         textRenderer->RenderText(msg2, centerX - 190.0f, centerY - 50.0f, 1.2f, glm::vec3(1.0f, 1.0f, 1.0f));
     }
     else if (gameWon) {
-        std::string msg1 = "YOU WIN!";
-        std::string msg2 = "Press 'R' to Restart";
+        std::string msg1 = "LEVEL 1 COMPLETE!";
+        std::string msg2 = "Press 'R' to Continue";
         float centerX = screenWidth / 2.0f;
         float centerY = screenHeight / 2.0f;
         
         // Draw Gold Text on Green Background
-        textRenderer->RenderText(msg1, centerX - 150.0f, centerY + 20.0f, 2.0f, glm::vec3(1.0f, 0.9f, 0.0f));
+        textRenderer->RenderText(msg1, centerX - 190.0f, centerY + 20.0f, 2.0f, glm::vec3(1.0f, 0.9f, 0.0f));
         textRenderer->RenderText(msg2, centerX - 190.0f, centerY - 50.0f, 1.2f, glm::vec3(1.0f, 1.0f, 1.0f));
     }
     else {
-        // Standard Gameplay HUD
-        std::string scoreText = "Score: " + std::to_string((int)score); // Cast to int for cleaner look
+        // 1. Standard Stats (Top Left)
+        std::string scoreText = "Score: " + std::to_string((int)score);
         textRenderer->RenderText(scoreText, 20.0f, screenHeight - 50.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
         
-        std::string sizeVal = std::to_string(player->scale);
-        std::string targetVal = std::to_string(targetScale);
-        std::string sizeText = "Size: " + sizeVal.substr(0, 3) + " / " + targetVal.substr(0, 3);
-        
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(2) << (player->scale * 100) << " / " << targetScale * 100;
+        std::string sizeText = "Size: " + ss.str();
         textRenderer->RenderText(sizeText, 20.0f, screenHeight - 90.0f, 1.0f, glm::vec3(0.5f, 0.8f, 1.0f)); 
+
+        // 2. POWERUP INDICATORS (Top Right)
+        float buffX = screenWidth - 300.0f; // Start 300px from right edge
+        float buffY = screenHeight - 50.0f; // Start at top
+        
+        // -- SPEED BOOST --
+        if (speedBoostActive) {
+            float timeLeft = speedBoostDuration - speedBoostTimer;
+            
+            std::stringstream sb;
+            sb << "SPEED BOOST: " << std::fixed << std::setprecision(1) << timeLeft << "s";
+            
+            // Render in Cyan/Green
+            textRenderer->RenderText(sb.str(), buffX, buffY, 1.0f, glm::vec3(0.0f, 1.0f, 1.0f));
+            
+            // Move down for next potential buff
+            buffY -= 40.0f; 
+        }
+
+        // -- DOUBLE SCORE --
+        if (doubleScoreActive) {
+            float timeLeft = doubleScoreDuration - doubleScoreTimer;
+            
+            std::stringstream ds;
+            ds << "2X SCORE: " << std::fixed << std::setprecision(1) << timeLeft << "s";
+            
+            // Render in Gold
+            textRenderer->RenderText(ds.str(), buffX, buffY, 1.0f, glm::vec3(1.0f, 0.8f, 0.0f));
+        }
     }
-    
     glDisable(GL_BLEND);
 }
 

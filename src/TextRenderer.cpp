@@ -43,8 +43,6 @@ void TextRenderer::Load(std::string fontPath, unsigned int fontSize) {
 }
 
 void TextRenderer::RenderText(std::string text, float x, float y, float scale, glm::vec3 color) {
-    // ... (Setup code remains same: shader->use, projection, texture bind) ...
-    
     shader->use();
     glm::mat4 projection = glm::ortho(0.0f, (float)screenWidth, 0.0f, (float)screenHeight);
     shader->setMat4("projection", projection);
@@ -55,18 +53,17 @@ void TextRenderer::RenderText(std::string text, float x, float y, float scale, g
     glBindTexture(GL_TEXTURE_2D, textureID);
 
     float charSize = 32.0f * scale; 
-    float uvSize = 1.0f / 16.0f;    
+    float uvSize = 1.0f / 16.0f; // 16x16 Grid
     
-    // --- DYNAMIC PADDING FIX ---
-    // Large text (scale > 1.0) needs almost no padding.
-    // Small text (scale < 0.8) needs more padding to avoid bleed.
-    // Formula: Base padding (0.005) divided by scale
-    float padding = 0.0f;
+    // --- ADJUSTMENTS FOR 32x32 PIXELS ---
+    // Padding: 0.005 is safer for 32px to prevent chipping
+    float padding = 0.0f; 
     
-    if (scale < 0.9f) {
-        padding = 0.002f; // Small constant padding for small text
-    }
-    // ---------------------------
+    // Spacing: 0.60 fits standard square bitmap fonts best.
+    // If gaps are too big, lower this (e.g. 0.5). 
+    // If letters overlap, raise it (e.g. 0.7).
+    float spacingMultiplier = 0.4f; 
+    // ------------------------------------
 
     for (char& c : text) {
         int ascii = (int)c;
@@ -100,7 +97,8 @@ void TextRenderer::RenderText(std::string text, float x, float y, float scale, g
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         
-        x += (charSize * 0.55f); 
+        // Apply spacing
+        x += (charSize * spacingMultiplier); 
     }
     
     glBindVertexArray(0);
