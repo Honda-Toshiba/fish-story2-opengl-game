@@ -18,10 +18,13 @@ uniform bool hasTexture;
 uniform bool isFloor;
 uniform bool isWater;
 uniform bool isSkybox;
-uniform bool isSun; 
+uniform bool isSun;
+uniform bool isGlowingFish;
+uniform bool isPowerUp;
 
 uniform sampler2D texture_diffuse1;
 uniform float time;
+uniform vec3 powerUpColor;
 
 // Caustics function
 float caustics(vec2 uv, float time) {
@@ -133,6 +136,19 @@ void main()
             baseColor = texture(texture_diffuse1, TexCoords).rgb;
         }
         result = baseColor * lighting;
+        
+        // Add subtle glow to small fish
+        if (isGlowingFish) {
+            vec3 glowColor = vec3(0.3, 0.5, 0.7); // Cyan-ish glow
+            float glowIntensity = 0.15; // Subtle glow
+            result += glowColor * glowIntensity;
+        }
+        
+        // Add powerup glow (green for speed, yellow for double score)
+        if (isPowerUp) {
+            float glowIntensity = 0.4 + 0.2 * sin(time * 3.0); // Pulsing glow
+            result += powerUpColor * glowIntensity;
+        }
     }
     
     // --- POST-PROCESSING EFFECTS ---

@@ -8,7 +8,9 @@ Game::Game(int width, int height)
     : screenWidth(width), screenHeight(height), window(nullptr),
       deltaTime(0.0f), lastFrame(0.0f),
       lastX(width / 2.0f), lastY(height / 2.0f), firstMouse(true),
-      leftMousePressed(false), score(0), gameOver(false), gameWon(false), targetScale(2.0f) {
+      leftMousePressed(false), score(0.0f), gameOver(false), gameWon(false), targetScale(2.0f),
+      speedBoostActive(false), speedBoostTimer(0.0f), speedBoostDuration(10.0f),
+      doubleScoreActive(false), doubleScoreTimer(0.0f), doubleScoreDuration(15.0f) {
     
     gameInstance = this;
     
@@ -95,13 +97,14 @@ bool Game::Initialize() {
     std::string sunPath = "models/Sun/model.obj"; 
     sunModel = std::make_unique<Model>(sunPath);
 
-    // Create collectibles (Seashells)
-    // Add some shells at random positions
-    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(10.0f, -25.0f, 10.0f), 0.5f));
-    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(-15.0f, -20.0f, 5.0f), 0.5f));
-    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(5.0f, -30.0f, -15.0f), 0.5f));
-    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(-20.0f, -15.0f, -20.0f), 0.5f));
-    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(25.0f, -22.0f, 0.0f), 0.5f));
+    // Create collectibles (Seashells with different powerups)
+    // Green shells - Speed boost
+    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(10.0f, -25.0f, 10.0f), 0.5f, SPEED_BOOST));
+    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(-15.0f, -20.0f, 5.0f), 0.5f, SPEED_BOOST));
+    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(5.0f, -30.0f, -15.0f), 0.5f, SPEED_BOOST));
+    // Yellow shells - Double score
+    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(-20.0f, -15.0f, -20.0f), 0.5f, DOUBLE_SCORE));
+    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(25.0f, -22.0f, 0.0f), 0.5f, DOUBLE_SCORE));
     
     // Add many swimming fish scattered around the map using Fish_v1 model
     float fishScale = 0.15f; // Small fish
@@ -175,9 +178,13 @@ bool Game::Initialize() {
     std::cout << "  WASD - Move forward/backward/left/right" << std::endl;
     std::cout << "  Space/Shift - Move up/down" << std::endl;
     std::cout << "  Hold Left Mouse - Sprint" << std::endl;
+    std::cout << "  E - Boost Sprint (2s duration, 5s cooldown)" << std::endl;
     std::cout << "  Keys 1/2 - Switch camera mode" << std::endl;
     std::cout << "  Mouse - Look around" << std::endl;
+    std::cout << "  R - Restart (when game over)" << std::endl;
     std::cout << "  ESC - Exit" << std::endl;
+    std::cout << "\nObjective: Eat 4 glowing fish to reach score 2.0 and win!" << std::endl;
+    std::cout << "Avoid sharks and hooks or you'll die!" << std::endl;
     
     return true;
 }
@@ -214,7 +221,7 @@ void Game::ProcessInput() {
             // Reset Logic
             gameOver = false;
             gameWon = false;
-            score = 0;
+            score = 0.0f;
             player->scale = 0.1f; // Reset size
             player->position = glm::vec3(0.0f, -20.0f, 0.0f);
             std::cout << "Game Restarted!" << std::endl;
@@ -262,6 +269,22 @@ void Game::ProcessInput() {
     
     // Sprint with left mouse button
     player->SetSprint(leftMousePressed);
+    
+    // Boost with 'E' key (must be released and pressed again)
+    static bool eKeyWasPressed = false;
+    bool eKeyPressed = (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS);
+    if (eKeyPressed && !eKeyWasPressed) {
+        player->ActivateBoost();
+    }
+    eKeyWasPressed = eKeyPressed;
+    
+    // T key for next level (restarts for now)
+    if (gameWon && glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
+        gameWon = false;
+        gameOver = false;
+        score = 0;
+        player->position = glm::vec3(0.0f, -20.0f, 0.0f);
+    }
 }
 
 void Game::Update() {
@@ -273,54 +296,96 @@ void Game::Update() {
     ocean->Update(deltaTime);
     camera->FollowPlayer(player->position, player->front, deltaTime, player->scale);
     
-    // 3. Update Collectibles
+    // 3. Update Collectibles & Powerups
+    // Update powerup timers
+    if (speedBoostActive) {
+        speedBoostTimer += deltaTime;
+        if (speedBoostTimer >= speedBoostDuration) {
+            speedBoostActive = false;
+            speedBoostTimer = 0.0f;
+            player->speed = 10.0f; // Reset to normal speed
+        }
+    }
+    if (doubleScoreActive) {
+        doubleScoreTimer += deltaTime;
+        if (doubleScoreTimer >= doubleScoreDuration) {
+            doubleScoreActive = false;
+            doubleScoreTimer = 0.0f;
+        }
+    }
+    
     for (auto& collectible : collectibles) {
         collectible->Update(deltaTime);
         if (collectible->IsActive()) {
-            if (collectible->CheckCollision(player->position, 2.0f)) {
+            if (collectible->CheckCollision(player->position, player->GetCollisionRadius())) {
                 collectible->Deactivate();
-                score += 10;
-                // Optional: Shells give a small growth boost?
-                // player->Grow(0.05f); 
+                
+                // Activate powerup based on type
+                if (collectible->GetPowerUpType() == SPEED_BOOST) {
+                    speedBoostActive = true;
+                    speedBoostTimer = 0.0f;
+                    player->speed = 20.0f; // Double speed
+                } else if (collectible->GetPowerUpType() == DOUBLE_SCORE) {
+                    doubleScoreActive = true;
+                    doubleScoreTimer = 0.0f;
+                }
             }
         }
     }
     
     // 4. Update Enemies & Check Collisions
+    float playerRadius = player->GetCollisionRadius();
+    
     for (auto it = enemies.begin(); it != enemies.end(); ) {
         (*it)->Update(deltaTime, player->position);
         
-        // CASE A: Edible Fish
+        // CASE A: Edible Fish - touch to eat
         if ((*it)->GetType() == FISH) {
-            // Check if we eat the fish (Dynamic collision radius based on size)
-            float eatRadius = 1.5f * (player->scale / 0.1f);
-            
-            if (glm::distance((*it)->GetPosition(), player->position) < eatRadius) {
-                score += 5;
-                player->Grow(0.02f); // Grow per fish
+            if ((*it)->CheckCollision(player->position, playerRadius)) {
+                float scoreGain = 0.5f;
+                if (doubleScoreActive) scoreGain *= 2.0f; // Double score powerup
+                score += scoreGain;
                 it = enemies.erase(it); // Remove eaten fish
                 continue;
             }
         }
-        // CASE B: Dangerous Enemies (Shark/Hook)
-        else if ((*it)->CheckCollision(player->position, 1.0f)) {
-            std::cout << "!!! GAME OVER !!! You were caught." << std::endl;
-            gameOver = true;
+        // CASE B: Dangerous Enemies (Shark/Hook) - touch to die
+        else {
+            if ((*it)->CheckCollision(player->position, playerRadius)) {
+                std::cout << "!!! GAME OVER !!! You were caught by a " 
+                         << ((*it)->GetType() == SHARK ? "shark" : "hook") << "!" << std::endl;
+                std::cout << "Final Score: " << score << std::endl;
+                gameOver = true;
+            }
         }
         
         ++it;
     }
 
-    // 5. Check WIN Condition
-    if (player->scale >= targetScale) {
-        std::cout << "*** YOU WIN! *** King of the Ocean!" << std::endl;
+    // 5. Check WIN Condition (Score-based)
+    if (score >= 2.0f) {
+        std::cout << "*** YOU WIN! *** You collected enough fish!" << std::endl;
+        std::cout << "Final Score: " << score << std::endl;
         gameWon = true;
     }
 
     // 6. Update HUD (Window Title)
-    std::string title = "Fish Story 2 | Score: " + std::to_string(score) + 
-                        " | Size: " + std::to_string(player->scale) + 
-                        " / " + std::to_string(targetScale);
+    std::string title;
+    if (gameWon) {
+        title = "YOU WIN! Press R to Restart | Press T for Next Level";
+    } else if (gameOver) {
+        title = "YOU LOSE! Press R to Restart";
+    } else {
+        title = "Fish Story 2 | Score: " + std::to_string(score) + " / 2.0";
+        
+        // Add powerup indicators
+        if (speedBoostActive) {
+            title += " | [SPEED BOOST]";
+        }
+        if (doubleScoreActive) {
+            title += " | [2X SCORE]";
+        }
+    }
     glfwSetWindowTitle(window, title.c_str());
 }
 
@@ -371,14 +436,18 @@ void Game::Render() {
 
     // Clear screen
     if (gameOver) {
-        // Red tint for Death
-        currentSkyColor = glm::vec3(0.5f, 0.0f, 0.0f);
-        currentLightColor = glm::vec3(1.0f, 0.0f, 0.0f);
+        // DARK RED screen for Death - easier on the eyes
+        glClearColor(0.5f, 0.0f, 0.0f, 0.95f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // Don't render anything else, just dark red screen
+        return;
     } 
     else if (gameWon) {
-        // Gold/Green tint for Victory
-        currentSkyColor = glm::vec3(0.8f, 0.7f, 0.2f);
-        currentLightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+        // DARK GREEN screen for Victory - easier on the eyes
+        glClearColor(0.0f, 0.35f, 0.0f, 0.95f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // Don't render anything else, just dark green screen
+        return;
     }
 
     // Clear buffers
@@ -448,9 +517,233 @@ void Game::Render() {
     for (auto& collectible : collectibles) collectible->Draw(*shader);
     
     shader->setVec3("objectColor", 0.5f, 0.5f, 0.5f);
-    for (auto& enemy : enemies) enemy->Draw(*shader);
+    shader->setBool("isGlowingFish", false);
+    for (auto& enemy : enemies) {
+        // Make small fish glow slightly
+        if (enemy->GetType() == FISH) {
+            shader->setBool("isGlowingFish", true);
+        }
+        enemy->Draw(*shader);
+        shader->setBool("isGlowingFish", false);
+    }
     
     player->Draw(*shader);
+}
+
+void Game::RenderEndScreen(const std::string& message, float r, float g, float b) {
+    // Clear to colored background
+    glClearColor(r, g, b, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
+    // Completely disable shader program - use fixed pipeline
+    glUseProgram(0);
+    
+    // Disable depth test for 2D overlay
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    
+    // Set up orthographic projection for 2D rendering
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, screenWidth, screenHeight, 0, -1, 1);  // Y flipped: 0 at top
+    
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    
+    // Draw huge white letters
+    glColor3f(1.0f, 1.0f, 1.0f);
+    
+    float startY = screenHeight * 0.3f;
+    float letterSize = 60.0f;
+    float spacing = 70.0f;
+    
+    if (message.find("WIN") != std::string::npos) {
+        float startX = screenWidth * 0.25f;
+        
+        // Y
+        glBegin(GL_QUADS);
+        glVertex2f(startX, startY); glVertex2f(startX + 30, startY);
+        glVertex2f(startX + 30, startY + 30); glVertex2f(startX, startY + 30);
+        glVertex2f(startX + 30, startY + 30); glVertex2f(startX + 60, startY + 30);
+        glVertex2f(startX + 60, startY + 60); glVertex2f(startX + 30, startY + 60);
+        glVertex2f(startX + 60, startY); glVertex2f(startX + 90, startY);
+        glVertex2f(startX + 90, startY + 30); glVertex2f(startX + 60, startY + 30);
+        glEnd();
+        startX += spacing;
+        
+        // O
+        glBegin(GL_QUADS);
+        glVertex2f(startX + 10, startY); glVertex2f(startX + 80, startY);
+        glVertex2f(startX + 80, startY + 20); glVertex2f(startX + 10, startY + 20);
+        glVertex2f(startX, startY + 20); glVertex2f(startX + 20, startY + 20);
+        glVertex2f(startX + 20, startY + 40); glVertex2f(startX, startY + 40);
+        glVertex2f(startX + 70, startY + 20); glVertex2f(startX + 90, startY + 20);
+        glVertex2f(startX + 90, startY + 40); glVertex2f(startX + 70, startY + 40);
+        glVertex2f(startX + 10, startY + 40); glVertex2f(startX + 80, startY + 40);
+        glVertex2f(startX + 80, startY + 60); glVertex2f(startX + 10, startY + 60);
+        glEnd();
+        startX += spacing;
+        
+        // U
+        glBegin(GL_QUADS);
+        glVertex2f(startX, startY); glVertex2f(startX + 20, startY);
+        glVertex2f(startX + 20, startY + 40); glVertex2f(startX, startY + 40);
+        glVertex2f(startX + 70, startY); glVertex2f(startX + 90, startY);
+        glVertex2f(startX + 90, startY + 40); glVertex2f(startX + 70, startY + 40);
+        glVertex2f(startX + 10, startY + 40); glVertex2f(startX + 80, startY + 40);
+        glVertex2f(startX + 80, startY + 60); glVertex2f(startX + 10, startY + 60);
+        glEnd();
+        startX += spacing + 30;
+        
+        // W
+        glBegin(GL_QUADS);
+        glVertex2f(startX, startY); glVertex2f(startX + 20, startY);
+        glVertex2f(startX + 20, startY + 60); glVertex2f(startX, startY + 60);
+        glVertex2f(startX + 35, startY + 40); glVertex2f(startX + 55, startY + 40);
+        glVertex2f(startX + 55, startY + 60); glVertex2f(startX + 35, startY + 60);
+        glVertex2f(startX + 70, startY); glVertex2f(startX + 90, startY);
+        glVertex2f(startX + 90, startY + 60); glVertex2f(startX + 70, startY + 60);
+        glEnd();
+        startX += spacing + 20;
+        
+        // I
+        glBegin(GL_QUADS);
+        glVertex2f(startX + 20, startY); glVertex2f(startX + 50, startY);
+        glVertex2f(startX + 50, startY + 60); glVertex2f(startX + 20, startY + 60);
+        glEnd();
+        startX += spacing - 20;
+        
+        // N
+        glBegin(GL_QUADS);
+        glVertex2f(startX, startY); glVertex2f(startX + 20, startY);
+        glVertex2f(startX + 20, startY + 60); glVertex2f(startX, startY + 60);
+        glVertex2f(startX + 20, startY + 20); glVertex2f(startX + 70, startY + 20);
+        glVertex2f(startX + 70, startY + 40); glVertex2f(startX + 20, startY + 40);
+        glVertex2f(startX + 70, startY); glVertex2f(startX + 90, startY);
+        glVertex2f(startX + 90, startY + 60); glVertex2f(startX + 70, startY + 60);
+        glEnd();
+        
+    } else {
+        float startX = screenWidth * 0.15f;
+        float lineY = startY;
+        
+        // G
+        glBegin(GL_QUADS);
+        glVertex2f(startX + 10, lineY); glVertex2f(startX + 90, lineY);
+        glVertex2f(startX + 90, lineY + 20); glVertex2f(startX + 10, lineY + 20);
+        glVertex2f(startX, lineY + 20); glVertex2f(startX + 20, lineY + 20);
+        glVertex2f(startX + 20, lineY + 60); glVertex2f(startX, lineY + 60);
+        glVertex2f(startX + 10, lineY + 60); glVertex2f(startX + 90, lineY + 60);
+        glVertex2f(startX + 90, lineY + 80); glVertex2f(startX + 10, lineY + 80);
+        glVertex2f(startX + 50, lineY + 35); glVertex2f(startX + 90, lineY + 35);
+        glVertex2f(startX + 90, lineY + 55); glVertex2f(startX + 50, lineY + 55);
+        glEnd();
+        startX += spacing + 20;
+        
+        // A
+        glBegin(GL_QUADS);
+        glVertex2f(startX + 30, lineY); glVertex2f(startX + 60, lineY);
+        glVertex2f(startX + 60, lineY + 20); glVertex2f(startX + 30, lineY + 20);
+        glVertex2f(startX, lineY + 20); glVertex2f(startX + 20, lineY + 20);
+        glVertex2f(startX + 20, lineY + 80); glVertex2f(startX, lineY + 80);
+        glVertex2f(startX + 70, lineY + 20); glVertex2f(startX + 90, lineY + 20);
+        glVertex2f(startX + 90, lineY + 80); glVertex2f(startX + 70, lineY + 80);
+        glVertex2f(startX + 20, lineY + 40); glVertex2f(startX + 70, lineY + 40);
+        glVertex2f(startX + 70, lineY + 55); glVertex2f(startX + 20, lineY + 55);
+        glEnd();
+        startX += spacing + 20;
+        
+        // M
+        glBegin(GL_QUADS);
+        glVertex2f(startX, lineY); glVertex2f(startX + 20, lineY);
+        glVertex2f(startX + 20, lineY + 80); glVertex2f(startX, lineY + 80);
+        glVertex2f(startX + 30, lineY + 20); glVertex2f(startX + 50, lineY + 20);
+        glVertex2f(startX + 50, lineY + 50); glVertex2f(startX + 30, lineY + 50);
+        glVertex2f(startX + 80, lineY); glVertex2f(startX + 100, lineY);
+        glVertex2f(startX + 100, lineY + 80); glVertex2f(startX + 80, lineY + 80);
+        glEnd();
+        startX += spacing + 40;
+        
+        // E
+        glBegin(GL_QUADS);
+        glVertex2f(startX, lineY); glVertex2f(startX + 80, lineY);
+        glVertex2f(startX + 80, lineY + 20); glVertex2f(startX, lineY + 20);
+        glVertex2f(startX, lineY); glVertex2f(startX + 20, lineY);
+        glVertex2f(startX + 20, lineY + 80); glVertex2f(startX, lineY + 80);
+        glVertex2f(startX, lineY + 30); glVertex2f(startX + 70, lineY + 30);
+        glVertex2f(startX + 70, lineY + 50); glVertex2f(startX, lineY + 50);
+        glVertex2f(startX, lineY + 60); glVertex2f(startX + 80, lineY + 60);
+        glVertex2f(startX + 80, lineY + 80); glVertex2f(startX, lineY + 80);
+        glEnd();
+        startX += spacing + 30;
+        
+        // Second line: OVER
+        lineY = startY + 120;
+        startX = screenWidth * 0.2f;
+        
+        // O
+        glBegin(GL_QUADS);
+        glVertex2f(startX + 10, lineY); glVertex2f(startX + 80, lineY);
+        glVertex2f(startX + 80, lineY + 20); glVertex2f(startX + 10, lineY + 20);
+        glVertex2f(startX, lineY + 20); glVertex2f(startX + 20, lineY + 20);
+        glVertex2f(startX + 20, lineY + 60); glVertex2f(startX, lineY + 60);
+        glVertex2f(startX + 70, lineY + 20); glVertex2f(startX + 90, lineY + 20);
+        glVertex2f(startX + 90, lineY + 60); glVertex2f(startX + 70, lineY + 60);
+        glVertex2f(startX + 10, lineY + 60); glVertex2f(startX + 80, lineY + 60);
+        glVertex2f(startX + 80, lineY + 80); glVertex2f(startX + 10, lineY + 80);
+        glEnd();
+        startX += spacing + 20;
+        
+        // V
+        glBegin(GL_QUADS);
+        glVertex2f(startX, lineY); glVertex2f(startX + 20, lineY);
+        glVertex2f(startX + 20, lineY + 50); glVertex2f(startX, lineY + 50);
+        glVertex2f(startX + 70, lineY); glVertex2f(startX + 90, lineY);
+        glVertex2f(startX + 90, lineY + 50); glVertex2f(startX + 70, lineY + 50);
+        glVertex2f(startX + 30, lineY + 50); glVertex2f(startX + 60, lineY + 50);
+        glVertex2f(startX + 60, lineY + 80); glVertex2f(startX + 30, lineY + 80);
+        glEnd();
+        startX += spacing + 20;
+        
+        // E
+        glBegin(GL_QUADS);
+        glVertex2f(startX, lineY); glVertex2f(startX + 80, lineY);
+        glVertex2f(startX + 80, lineY + 20); glVertex2f(startX, lineY + 20);
+        glVertex2f(startX, lineY); glVertex2f(startX + 20, lineY);
+        glVertex2f(startX + 20, lineY + 80); glVertex2f(startX, lineY + 80);
+        glVertex2f(startX, lineY + 30); glVertex2f(startX + 70, lineY + 30);
+        glVertex2f(startX + 70, lineY + 50); glVertex2f(startX, lineY + 50);
+        glVertex2f(startX, lineY + 60); glVertex2f(startX + 80, lineY + 60);
+        glVertex2f(startX + 80, lineY + 80); glVertex2f(startX, lineY + 80);
+        glEnd();
+        startX += spacing + 20;
+        
+        // R
+        glBegin(GL_QUADS);
+        glVertex2f(startX, lineY); glVertex2f(startX + 20, lineY);
+        glVertex2f(startX + 20, lineY + 80); glVertex2f(startX, lineY + 80);
+        glVertex2f(startX + 20, lineY); glVertex2f(startX + 80, lineY);
+        glVertex2f(startX + 80, lineY + 20); glVertex2f(startX + 20, lineY + 20);
+        glVertex2f(startX + 70, lineY + 20); glVertex2f(startX + 90, lineY + 20);
+        glVertex2f(startX + 90, lineY + 35); glVertex2f(startX + 70, lineY + 35);
+        glVertex2f(startX + 20, lineY + 35); glVertex2f(startX + 80, lineY + 35);
+        glVertex2f(startX + 80, lineY + 50); glVertex2f(startX + 20, lineY + 50);
+        glVertex2f(startX + 60, lineY + 50); glVertex2f(startX + 90, lineY + 50);
+        glVertex2f(startX + 90, lineY + 80); glVertex2f(startX + 60, lineY + 80);
+        glEnd();
+    }
+    
+    // Only print to console once
+    static std::string lastMessage = "";
+    if (message != lastMessage) {
+        std::cout << "\n========================================" << std::endl;
+        std::cout << message << std::endl;
+        std::cout << "========================================\n" << std::endl;
+        lastMessage = message;
+    }
+    
+    // Re-enable depth test
+    glEnable(GL_DEPTH_TEST);
 }
 
 // Callback implementations

@@ -12,6 +12,12 @@ Player::Player(const std::string& modelPath)
       speed(10.0f),
       sprintMultiplier(2.0f),
       isSprinting(false),
+      isBoostActive(false),
+      boostMultiplier(3.5f),  // Boost is 3.5x normal speed
+      boostDuration(2.0f),    // Boost lasts 2 seconds
+      boostCooldown(5.0f),    // 5 second cooldown
+      boostTimer(0.0f),
+      cooldownTimer(0.0f),
       mouthOpenAmount(0.0f),
       swimCycleTime(0.0f),
       targetPitch(0.0f),
@@ -37,6 +43,18 @@ void Player::Update(float deltaTime) {
     // Reset target pitch (will be set by movement functions if moving vertically)
     targetPitch = 0.0f;
     
+    // Update boost timer
+    if (isBoostActive) {
+        boostTimer += deltaTime;
+        if (boostTimer >= boostDuration) {
+            isBoostActive = false;
+            boostTimer = 0.0f;
+            cooldownTimer = 0.0f; // Start cooldown
+        }
+    } else if (cooldownTimer < boostCooldown) {
+        cooldownTimer += deltaTime;
+    }
+    
     clampToBoundaries();
 }
 
@@ -49,6 +67,7 @@ void Player::Draw(Shader& shader) {
 void Player::MoveInDirection(const glm::vec3& direction, float deltaTime) {
     float velocity = speed * deltaTime;
     if (isSprinting) velocity *= sprintMultiplier;
+    if (isBoostActive) velocity *= boostMultiplier;
     
     // Move in the given direction
     position += direction * velocity;
@@ -72,6 +91,7 @@ void Player::MoveInDirection(const glm::vec3& direction, float deltaTime) {
 void Player::MoveForward(float deltaTime) {
     float velocity = speed * deltaTime;
     if (isSprinting) velocity *= sprintMultiplier;
+    if (isBoostActive) velocity *= boostMultiplier;
     position += front * velocity;
 }
 
@@ -82,13 +102,14 @@ void Player::Grow(float amount) {
 }
 
 float Player::GetCollisionRadius() const {
-    // Base radius is roughly 1.0f, scales with the model
-    return 1.5f * (scale / 0.1f); // 0.1f was your initial scale
+    // Regular hitbox based on player scale - larger radius for easier interaction
+    return 4.0f * (scale / 0.1f);
 }
 
 void Player::MoveBackward(float deltaTime) {
     float velocity = speed * deltaTime;
     if (isSprinting) velocity *= sprintMultiplier;
+    if (isBoostActive) velocity *= boostMultiplier;
     position -= front * velocity;
 }
 
@@ -116,6 +137,17 @@ void Player::MoveDown(float deltaTime) {
 
 void Player::SetSprint(bool sprint) {
     isSprinting = sprint;
+}
+
+void Player::ActivateBoost() {
+    if (CanBoost()) {
+        isBoostActive = true;
+        boostTimer = 0.0f;
+    }
+}
+
+bool Player::CanBoost() const {
+    return !isBoostActive && cooldownTimer >= boostCooldown;
 }
 
 void Player::UpdateRotation(float xoffset, float yoffset) {

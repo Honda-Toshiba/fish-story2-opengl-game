@@ -21,6 +21,12 @@ public:
     float speed;
     float sprintMultiplier;
     bool isSprinting;
+    bool isBoostActive;
+    float boostMultiplier;
+    float boostDuration;
+    float boostCooldown;
+    float boostTimer;
+    float cooldownTimer;
     
     // Animation state
     float mouthOpenAmount;
@@ -48,6 +54,8 @@ public:
     float GetCollisionRadius() const;
     
     void SetSprint(bool sprint);
+    void ActivateBoost();
+    bool CanBoost() const;
     void UpdateRotation(float xoffset, float yoffset);
     
     void SetBoundaries(float minX, float maxX, float minY, float maxY, float minZ, float maxZ);

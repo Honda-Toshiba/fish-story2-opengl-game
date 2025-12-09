@@ -45,10 +45,18 @@ private:
     std::vector<std::unique_ptr<Enemy>> enemies;
     std::unique_ptr<Model> sunModel;
 
-    int score;
+    float score;
     bool gameOver;
     bool gameWon;
     float targetScale;
+    
+    // Powerup tracking
+    bool speedBoostActive;
+    float speedBoostTimer;
+    float speedBoostDuration;
+    bool doubleScoreActive;
+    float doubleScoreTimer;
+    float doubleScoreDuration;
     
     // Timing
     float deltaTime;
@@ -72,6 +80,7 @@ private:
     void ProcessInput();
     void Update();
     void Render();
+    void RenderEndScreen(const std::string& message, float r, float g, float b);
     
     void SetupOpenGL();
 };
