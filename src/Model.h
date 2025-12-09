@@ -36,9 +36,10 @@ public:
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
     std::vector<Texture> textures;
+    glm::vec3 materialColor; // Material diffuse color from .mtl
     unsigned int VAO;
 
-    Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture> textures);
+    Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture> textures, glm::vec3 matColor = glm::vec3(0.8f));
     void Draw(Shader &shader);
 
 private:

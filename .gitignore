@@ -44,3 +44,7 @@ Makefile
 # OS generated files
 Thumbs.db
 .directory
+
+
+docs/*
+build/*

@@ -396,12 +396,17 @@ void Game::Render() {
     shader->setMat4("view", view);
     shader->setMat4("projection", projection);
     
-    // Send "Real" Light Source Position
     shader->setVec3("lightPos", activeLightPos);
     shader->setVec3("viewPos", camera->Position);
     shader->setVec3("lightColor", currentLightColor);
     shader->setVec3("skyColor", currentSkyColor);
     shader->setFloat("time", glfwGetTime());
+    
+    // Set defaults for Level 2 uniforms (not used in Level 1)
+    shader->setInt("numLights", 0);
+    shader->setVec3("ambientLight", glm::vec3(0.3f, 0.3f, 0.3f));
+    shader->setBool("isCave", false);
+    shader->setBool("isGlowing", false);
 
     // ==========================================
     // 4. DRAW CELESTIAL BODIES (FIRST!)

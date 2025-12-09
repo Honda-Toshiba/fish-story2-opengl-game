@@ -13,6 +13,7 @@ uniform mat4 view;
 uniform mat4 projection;
 uniform float time;
 uniform bool isWater;
+uniform bool isCave;
 
 void main()
 {

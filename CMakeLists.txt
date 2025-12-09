@@ -15,6 +15,11 @@ set(SOURCES
     src/Game.cpp
     src/Collectible.cpp
     src/Enemy.cpp
+    src/Cave.cpp
+    src/Anglerfish.cpp
+    src/GameLevel2.cpp
+    src/Crab.cpp
+    src/TreasureChest.cpp
 )
 
 set(HEADERS
@@ -26,6 +31,11 @@ set(HEADERS
     src/Game.h
     src/Collectible.h
     src/Enemy.h
+    src/Cave.h
+    src/Anglerfish.h
+    src/GameLevel2.h
+    src/Crab.h
+    src/TreasureChest.h
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
