@@ -25,6 +25,7 @@ public:
 private:
     unsigned int VAO, VBO;
     unsigned int textureID;
+    unsigned int whiteTexID; // For rendering solid bars
     Shader* shader;
     unsigned int screenWidth, screenHeight;
     

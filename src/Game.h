@@ -28,6 +28,7 @@ public:
     bool Initialize();
     void Run();
     void ResetLevel();
+    bool ShouldTransitionToLevel2() const { return shouldTransitionToLevel2; }
     
     // Callbacks
     static void FramebufferSizeCallback(GLFWwindow* window, int width, int height);
@@ -54,6 +55,7 @@ private:
     float score;
     bool gameOver;
     bool gameWon;
+    bool shouldTransitionToLevel2;
     float targetScale;
     
     // Health system

@@ -3,7 +3,7 @@
 #include "stb_image.h" // Reuse existing stb_image
 
 TextRenderer::TextRenderer(unsigned int width, unsigned int height, Shader* s) 
-    : screenWidth(width), screenHeight(height), shader(s) {
+    : screenWidth(width), screenHeight(height), shader(s), whiteTexID(0) {
     
     // Configure VAO/VBO for texture quads
     initRenderData();
@@ -12,6 +12,9 @@ TextRenderer::TextRenderer(unsigned int width, unsigned int height, Shader* s)
 TextRenderer::~TextRenderer() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
+    if (whiteTexID != 0) {
+        glDeleteTextures(1, &whiteTexID);
+    }
 }
 
 void TextRenderer::Load(std::string fontPath, unsigned int fontSize) {
@@ -116,13 +119,14 @@ void TextRenderer::RenderBar(float x, float y, float width, float height, glm::v
     
     // NOTE: Your text shader multiplies color * texture. 
     // If texture is unbound (0), it might sample black. 
-    // To fix this easily without changing shaders, we create a 1x1 white texture ONCE.
-    static unsigned int whiteTexID = 0;
+    // To fix this, we create a 1x1 white texture for this instance.
     if (whiteTexID == 0) {
         glGenTextures(1, &whiteTexID);
         glBindTexture(GL_TEXTURE_2D, whiteTexID);
         unsigned char white[] = { 255, 255, 255, 255 };
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, white);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     }
     glBindTexture(GL_TEXTURE_2D, whiteTexID);
 

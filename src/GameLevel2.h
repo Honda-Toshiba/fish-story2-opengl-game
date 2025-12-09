@@ -15,6 +15,7 @@
 #include "Camera.h"
 #include "Cave.h"
 #include "Shader.h"
+#include "Collectible.h"
 #include "Anglerfish.h"
 #include "Crab.h"
 #include "TreasureChest.h"
@@ -47,6 +48,7 @@ private:
     std::unique_ptr<Camera> camera;
     std::unique_ptr<Cave> cave;
     std::unique_ptr<Shader> shader;
+    std::vector<std::unique_ptr<Collectible>> collectibles;
     std::vector<std::unique_ptr<Anglerfish>> anglerfish;
     std::vector<std::unique_ptr<Crab>> crabs;
     std::unique_ptr<TreasureChest> treasureChest;
@@ -94,10 +96,12 @@ private:
     void ProcessInput();
     void Update();
     void Render();
+    void ResetLevel();
     
     void SetupOpenGL();
     void SpawnAnglerfish();
     void SpawnCrabs();
+    void SpawnCoins();
     void SpawnStalactite();
 };
 
