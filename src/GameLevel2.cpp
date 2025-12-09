@@ -27,6 +27,12 @@ GameLevel2::~GameLevel2() {
 }
 
 bool GameLevel2::Initialize() {
+    // Initialize Audio Engine
+    audio = std::make_unique<AudioEngine>();
+    if (audio->Initialize()) {
+        audio->LoadSound("coin-spill", "audio/coin-spill.mp3", false);
+    }
+    
     // Initialize GLFW
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW" << std::endl;
@@ -347,6 +353,7 @@ void GameLevel2::Update() {
         if (!gameWon && !treasureChest->IsOpened() && treasureChest->CheckCollision(player->position, 2.0f)) {
             treasureChest->Open();
             std::cout << "*** TREASURE FOUND! *** Coins flying!" << std::endl;
+            audio->Play("coin-spill");
             gameWon = true;
             score += 100;
         }

@@ -19,6 +19,7 @@
 #include "Crab.h"
 #include "TreasureChest.h"
 #include "Model.h"
+#include "AudioEngine.h"
 
 class GameLevel2 {
 public:
@@ -53,6 +54,7 @@ private:
     std::unique_ptr<Model> crabModel;
     std::unique_ptr<Model> treasureChestModel;
     std::unique_ptr<Model> coinModel;
+    std::unique_ptr<AudioEngine> audio;
     
     int score;
     int anglerfishCollected;
