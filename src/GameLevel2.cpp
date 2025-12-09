@@ -73,6 +73,19 @@ bool GameLevel2::Initialize() {
     
     SetupOpenGL();
     
+    // Initialize audio
+    audio = std::make_unique<AudioEngine>();
+    if (audio->Initialize()) {
+        audio->LoadSound("bubbles", "audio/bubbles.mp3", true);
+        audio->LoadSound("crunch", "audio/crunch.mp3", false);
+        audio->Play("bubbles");
+    }
+    
+    // Initialize text renderer
+    textShader = std::make_unique<Shader>("shaders/text.vert", "shaders/text.frag");
+    textRenderer = std::make_unique<TextRenderer>(screenWidth, screenHeight, textShader.get());
+    textRenderer->Load("models/font_atlas.png", 32);
+    
     // Initialize shader
     shader = std::make_unique<Shader>("shaders/vertex.glsl", "shaders/fragment.glsl");
     
@@ -274,7 +287,10 @@ void GameLevel2::ProcessInput() {
     
     if (isMoving) {
         moveDirection = glm::normalize(glm::vec3(moveDirection.x, 0.0f, moveDirection.z));
-        player->MoveInDirection(moveDirection, deltaTime);
+        // In first-person, don't rotate player to face movement (mouse controls rotation)
+        // In third-person, rotate player to face movement direction
+        bool shouldRotate = (camera->mode == THIRD_PERSON);
+        player->MoveInDirection(moveDirection, deltaTime, shouldRotate);
     }
     
     // Vertical movement
@@ -284,14 +300,38 @@ void GameLevel2::ProcessInput() {
         glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS)
         player->MoveDown(deltaTime);
     
-    // Sprint
-    player->SetSprint(leftMousePressed);
+    // Burst Sprint with left mouse button
+    if (leftMousePressed && !player->isSprinting && player->sprintCooldownTimer <= 0.0f) {
+        player->isSprinting = true;
+        player->sprintTimer = 0.0f;
+        player->speed = 25.0f; // Apply Burst Speed immediately
+    }
 }
 
 void GameLevel2::Update() {
     if (gameOver) return; // Only stop on game over, not on win
     
     player->Update(deltaTime);
+    
+    // Update sprint system
+    if (player->isSprinting) {
+        // We are currently running fast
+        player->sprintTimer += deltaTime;
+        if (player->sprintTimer >= player->sprintDuration) {
+            // Time's up! Stop sprinting.
+            player->isSprinting = false;
+            player->speed = 10.0f; // Reset to normal speed
+            player->sprintCooldownTimer = player->sprintCooldown; // Start the cooldown
+            player->sprintTimer = 0.0f;
+        }
+    } 
+    else {
+        // We are not sprinting, check cooldown
+        if (player->sprintCooldownTimer > 0.0f) {
+            player->sprintCooldownTimer -= deltaTime;
+        }
+    }
+    
     cave->Update(deltaTime);
     
     // Update camera to follow player with cave bounds for collision detection
@@ -456,6 +496,89 @@ void GameLevel2::Render() {
     if (treasureChest) {
         treasureChest->Draw(*shader);
     }
+    
+    // ---------------------------------------------
+    // DRAW TEXT / HUD (Always)
+    // ---------------------------------------------
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    if (gameOver) {
+        std::string msg1 = "GAME OVER";
+        std::string msg2 = "Press 'R' to Restart";
+        float centerX = screenWidth / 2.0f;
+        float centerY = screenHeight / 2.0f;
+        
+        // Draw White Text on Red Background
+        textRenderer->RenderText(msg1, centerX - 180.0f, centerY + 20.0f, 2.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+        textRenderer->RenderText(msg2, centerX - 190.0f, centerY - 50.0f, 1.2f, glm::vec3(1.0f, 1.0f, 1.0f));
+    }
+    else if (gameWon) {
+        std::string msg1 = "LEVEL 2 COMPLETE!";
+        std::string msg2 = "Press 'R' to Continue";
+        float centerX = screenWidth / 2.0f;
+        float centerY = screenHeight / 2.0f;
+        
+        // Draw Gold Text on Green Background
+        textRenderer->RenderText(msg1, centerX - 190.0f, centerY + 20.0f, 2.0f, glm::vec3(1.0f, 0.9f, 0.0f));
+        textRenderer->RenderText(msg2, centerX - 190.0f, centerY - 50.0f, 1.2f, glm::vec3(1.0f, 1.0f, 1.0f));
+    }
+    else {
+        // 1. Standard Stats (Top Left)
+        std::string scoreText = "Score: " + std::to_string(score);
+        textRenderer->RenderText(scoreText, 20.0f, screenHeight - 50.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+        
+        std::string fishText = "Anglerfish: " + std::to_string(anglerfishCollected) + "/8";
+        textRenderer->RenderText(fishText, 20.0f, screenHeight - 90.0f, 1.0f, glm::vec3(0.5f, 0.8f, 1.0f));
+        
+        std::string progressText = "Progress: " + std::to_string((int)(cave->GetProgress(player->position) * 100)) + "%";
+        textRenderer->RenderText(progressText, 20.0f, screenHeight - 130.0f, 1.0f, glm::vec3(1.0f, 1.0f, 0.5f));
+        
+        // 2. SPRINT / COOLDOWN BAR (Bottom Center)
+        glDisable(GL_DEPTH_TEST);
+        float barWidth = 300.0f;
+        float barHeight = 15.0f;
+        
+        float barX = (screenWidth / 2.0f) - (barWidth / 2.0f);
+        float barY = 40.0f;
+        
+        // Draw Background (Dark Gray)
+        textRenderer->RenderBar(barX, barY, barWidth, barHeight, glm::vec3(0.2f, 0.2f, 0.2f));
+
+        // Calculate Fill & Color
+        float fillPercent = 1.0f;
+        glm::vec3 barColor = glm::vec3(1.0f); 
+        std::string statusText = "";
+
+        if (player->isSprinting) {
+            // Draining (Green)
+            fillPercent = 1.0f - (player->sprintTimer / player->sprintDuration);
+            barColor = glm::vec3(0.0f, 1.0f, 0.0f); 
+            statusText = "SPRINTING";
+        } 
+        else if (player->sprintCooldownTimer > 0.0f) {
+            // Recharging (Orange)
+            fillPercent = 1.0f - (player->sprintCooldownTimer / player->sprintCooldown);
+            barColor = glm::vec3(1.0f, 0.5f, 0.0f); 
+            statusText = "RECHARGING";
+        } 
+        else {
+            // Ready (Cyan)
+            fillPercent = 1.0f;
+            barColor = glm::vec3(0.0f, 1.0f, 1.0f); 
+            statusText = "READY [LMB]";
+        }
+        
+        // Draw Foreground Bar
+        textRenderer->RenderBar(barX, barY, barWidth * fillPercent, barHeight, barColor);
+        
+        // Draw Text (Centered above the bar)
+        float textX = (screenWidth / 2.0f) - (statusText.length() * 4.0f);
+        textRenderer->RenderText(statusText, textX, barY + 25.0f, 0.5f, barColor);
+        
+        glEnable(GL_DEPTH_TEST);
+    }
+    glDisable(GL_BLEND);
 }
 
 // Callback implementations
@@ -482,7 +605,13 @@ void GameLevel2::MouseCallback(GLFWwindow* window, double xpos, double ypos) {
     gameLevel2Instance->lastX = xpos;
     gameLevel2Instance->lastY = ypos;
     
-    gameLevel2Instance->camera->ProcessMouseMovement(xoffset, yoffset);
+    // In first-person mode, mouse controls player rotation
+    // In third-person mode, mouse controls camera orbit
+    if (gameLevel2Instance->camera->mode == FIRST_PERSON) {
+        gameLevel2Instance->player->UpdateRotation(xoffset, yoffset);
+    } else {
+        gameLevel2Instance->camera->ProcessMouseMovement(xoffset, yoffset);
+    }
 }
 
 void GameLevel2::MouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
