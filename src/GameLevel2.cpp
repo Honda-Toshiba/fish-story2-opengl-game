@@ -84,11 +84,11 @@ bool GameLevel2::Initialize() {
     // Initialize audio
     audio = std::make_unique<AudioEngine>();
     if (audio->Initialize()) {
-        audio->LoadSound("bubbles", "audio/bubbles.mp3", true);
+        audio->LoadSound("cave-ambience", "audio/cave-ambience.mp3", true);
         audio->LoadSound("coin", "audio/coin.wav", false);
         audio->LoadSound("crunch", "audio/crunch.mp3", false);
         audio->LoadSound("hook", "audio/hook.mp3", false);
-        audio->Play("bubbles");
+        audio->Play("cave-ambience");
     }
     
     // Initialize text renderer
@@ -287,21 +287,49 @@ void GameLevel2::Run() {
     }
 }
 
+void GameLevel2::ResetLevel() {
+    // Reset game state
+    gameOver = false;
+    gameWon = false;
+    score = 0;
+    anglerfishCollected = 0;
+    
+    // Reset player
+    player->scale = 0.1f;
+    player->position = glm::vec3(0.0f, 7.0f, 10.0f);
+    player->speed = 10.0f;
+    player->yaw = 0.0f;
+    
+    // Clear and respawn entities
+    anglerfish.clear();
+    crabs.clear();
+    collectibles.clear();
+    stalactites.clear();
+    
+    // Respawn all entities
+    SpawnAnglerfish();
+    SpawnCrabs();
+    SpawnCoins();
+    
+    // Reset treasure chest
+    glm::vec3 treasurePos(0.0f, 3.0f, cave->GetLength() - 10.0f);
+    treasureChest = std::make_unique<TreasureChest>(treasureChestModel.get(), coinModel.get(), treasurePos);
+    
+    // Reset stalactite spawning
+    stalactiteSpawnTimer = 0.0f;
+    
+    // Restart ambient audio
+    if (audio) {
+        audio->Play("bubbles");
+    }
+    
+    std::cout << "Level 2 Reset!" << std::endl;
+}
+
 void GameLevel2::ProcessInput() {
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
         if (gameOver || gameWon) {
-            // Reset logic
-            gameOver = false;
-            gameWon = false;
-            score = 0;
-            anglerfishCollected = 0;
-            player->position = glm::vec3(0.0f, 7.0f, 5.0f);
-            
-            // Respawn anglerfish
-            anglerfish.clear();
-            SpawnAnglerfish();
-            
-            std::cout << "Level 2 Restarted!" << std::endl;
+            ResetLevel();
         }
     }
     

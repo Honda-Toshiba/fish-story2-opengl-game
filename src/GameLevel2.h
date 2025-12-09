@@ -90,6 +90,7 @@ private:
     void ProcessInput();
     void Update();
     void Render();
+    void ResetLevel();
     
     void SetupOpenGL();
     void SpawnAnglerfish();
