@@ -73,6 +73,10 @@ bool Game::Initialize() {
     
     SetupOpenGL();
     
+    textShader = std::make_unique<Shader>("shaders/text.vert", "shaders/text.frag");
+    textRenderer = std::make_unique<TextRenderer>(screenWidth, screenHeight, textShader.get());
+
+    textRenderer->Load("models/font_atlas.png", 32);
     // Initialize game objects
     shader = std::make_unique<Shader>("shaders/vertex.glsl", "shaders/fragment.glsl");
     ocean = std::make_unique<Ocean>(100.0f, 50.0f);
@@ -370,22 +374,7 @@ void Game::Update() {
     }
 
     // 6. Update HUD (Window Title)
-    std::string title;
-    if (gameWon) {
-        title = "YOU WIN! Press R to Restart | Press T for Next Level";
-    } else if (gameOver) {
-        title = "YOU LOSE! Press R to Restart";
-    } else {
-        title = "Fish Story 2 | Score: " + std::to_string(score) + " / 2.0";
-        
-        // Add powerup indicators
-        if (speedBoostActive) {
-            title += " | [SPEED BOOST]";
-        }
-        if (doubleScoreActive) {
-            title += " | [2X SCORE]";
-        }
-    }
+    std::string title = "Fish Story 2";
     glfwSetWindowTitle(window, title.c_str());
 }
 
@@ -393,141 +382,152 @@ void Game::Render() {
     // ---------------------------------------------
     // 1. CELESTIAL MATH (The Physics)
     // ---------------------------------------------
-    // Cycle: 0.0 to 2*PI. Multiplier 0.1f = Day speed.
     float cycleTime = glfwGetTime() * 0.1f; 
     float orbitRadius = 100.0f;
     
-    // Calculate positions (Opposite to each other)
     float orbitX = sin(cycleTime) * orbitRadius;
     float orbitY = cos(cycleTime) * orbitRadius;
     
-    // Position vectors based on orbit
     glm::vec3 sunPos(orbitX, orbitY, 0.0f);
     glm::vec3 moonPos = -sunPos; 
 
-    // ---------------------------------------------
-    // 2. DETERMINE ACTIVE LIGHT SOURCE
-    // ---------------------------------------------
     glm::vec3 activeLightPos;
     float skyMix;
 
     if (sunPos.y >= 0.0f) {
-        // DAYTIME
         activeLightPos = sunPos;
-        skyMix = (sin(cycleTime) + 1.0f) / 2.0f; // Smooth day/night transition
+        skyMix = (sin(cycleTime) + 1.0f) / 2.0f; 
     } else {
-        // NIGHTTIME
         activeLightPos = moonPos;
-        skyMix = 0.0f; // Night
+        skyMix = 0.0f; 
     }
 
     // ---------------------------------------------
-    // 3. RENDER SETUP
+    // 2. BACKGROUND COLOR SETUP
     // ---------------------------------------------
-    // Define Atmosphere Colors
     glm::vec3 dayLight(1.0f, 0.95f, 0.8f);    
     glm::vec3 nightLight(0.05f, 0.05f, 0.2f); 
-    
     glm::vec3 daySky(0.1f, 0.3f, 0.5f);       
     glm::vec3 nightSky(0.01f, 0.01f, 0.05f);  
 
     glm::vec3 currentLightColor = glm::mix(nightLight, dayLight, skyMix);
     glm::vec3 currentSkyColor   = glm::mix(nightSky, daySky, skyMix);
 
-    // Clear screen
+    // FIX: Set Clear Color based on state
     if (gameOver) {
-        // DARK RED screen for Death - easier on the eyes
-        glClearColor(0.5f, 0.0f, 0.0f, 0.95f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        // Don't render anything else, just dark red screen
-        return;
+        glClearColor(0.5f, 0.0f, 0.0f, 1.0f); // Red for Loss
     } 
     else if (gameWon) {
-        // DARK GREEN screen for Victory - easier on the eyes
-        glClearColor(0.0f, 0.35f, 0.0f, 0.95f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        // Don't render anything else, just dark green screen
-        return;
+        glClearColor(0.0f, 0.35f, 0.0f, 1.0f); // Green for Win
+    } 
+    else {
+        glClearColor(currentSkyColor.r, currentSkyColor.g, currentSkyColor.b, 1.0f); // Normal Sky
     }
 
-    // Clear buffers
-    glClearColor(currentSkyColor.r, currentSkyColor.g, currentSkyColor.b, 1.0f);
+    // Clear Screen ONCE
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
-    shader->use();
 
-    // Send Uniforms
-    glm::mat4 view = camera->GetViewMatrix();
-    glm::mat4 projection = glm::perspective(glm::radians(camera->Zoom),
-                                           (float)screenWidth / (float)screenHeight,
-                                           0.1f, 500.0f);
-    
-    shader->setMat4("view", view);
-    shader->setMat4("projection", projection);
-    
-    // Send "Real" Light Source Position
-    shader->setVec3("lightPos", activeLightPos);
-    shader->setVec3("viewPos", camera->Position);
-    shader->setVec3("lightColor", currentLightColor);
-    shader->setVec3("skyColor", currentSkyColor);
-    shader->setFloat("time", glfwGetTime());
+    // ---------------------------------------------
+    // 3. DRAW 3D WORLD (Only if Playing)
+    // ---------------------------------------------
+    // FIX: We skip this huge block if the game is over/won so the screen stays clean
+    if (!gameOver && !gameWon) {
+        shader->use();
 
-    // ==========================================
-    // 4. DRAW CELESTIAL BODIES (FIRST!)
-    // ==========================================
-    // We draw these before the water so they appear "behind" the transparent surface.
-    
-    // -- DRAW SUN --
-    if (sunPos.y > -20.0f) {
-        glm::mat4 sunMat = glm::mat4(1.0f);
-        sunMat = glm::translate(sunMat, sunPos);
-        sunMat = glm::scale(sunMat, glm::vec3(8.0f)); 
-
-        shader->setMat4("model", sunMat);
-        shader->setVec3("objectColor", 1.00f, 0.80f, 0.00f); // Yellow
-        shader->setBool("isSun", true); // Trigger Glow Shader
+        // Send Uniforms
+        glm::mat4 view = camera->GetViewMatrix();
+        glm::mat4 projection = glm::perspective(glm::radians(camera->Zoom),
+                                            (float)screenWidth / (float)screenHeight,
+                                            0.1f, 500.0f);
         
-        if (sunModel) sunModel->Draw(*shader);
-        else shellModel->Draw(*shader);
+        shader->setMat4("view", view);
+        shader->setMat4("projection", projection);
         
-        shader->setBool("isSun", false); 
-    }
+        shader->setVec3("lightPos", activeLightPos);
+        shader->setVec3("viewPos", camera->Position);
+        shader->setVec3("lightColor", currentLightColor);
+        shader->setVec3("skyColor", currentSkyColor);
+        shader->setFloat("time", glfwGetTime());
 
-    // -- DRAW MOON --
-    if (moonPos.y > -20.0f) {
-        glm::mat4 moonMat = glm::mat4(1.0f);
-        moonMat = glm::translate(moonMat, moonPos);
-        moonMat = glm::scale(moonMat, glm::vec3(4.0f)); 
-
-        shader->setMat4("model", moonMat);
-        shader->setVec3("objectColor", 0.9f, 0.9f, 1.0f); // White
-        shader->setBool("isSun", true); // Reuse Glow Shader
-        
-        if (sunModel) sunModel->Draw(*shader);
-        else shellModel->Draw(*shader);
-        
-        shader->setBool("isSun", false); 
-    }
-
-    // ==========================================
-    // 5. DRAW WORLD (Water blends over Sun)
-    // ==========================================
-    ocean->Draw(*shader); 
-    
-    for (auto& collectible : collectibles) collectible->Draw(*shader);
-    
-    shader->setVec3("objectColor", 0.5f, 0.5f, 0.5f);
-    shader->setBool("isGlowingFish", false);
-    for (auto& enemy : enemies) {
-        // Make small fish glow slightly
-        if (enemy->GetType() == FISH) {
-            shader->setBool("isGlowingFish", true);
+        // Draw Sun
+        if (sunPos.y > -20.0f) {
+            glm::mat4 sunMat = glm::mat4(1.0f);
+            sunMat = glm::translate(sunMat, sunPos);
+            sunMat = glm::scale(sunMat, glm::vec3(8.0f)); 
+            shader->setMat4("model", sunMat);
+            shader->setVec3("objectColor", 1.00f, 0.80f, 0.00f); 
+            shader->setBool("isSun", true);
+            if (sunModel) sunModel->Draw(*shader);
+            else shellModel->Draw(*shader);
+            shader->setBool("isSun", false); 
         }
-        enemy->Draw(*shader);
+
+        // Draw Moon
+        if (moonPos.y > -20.0f) {
+            glm::mat4 moonMat = glm::mat4(1.0f);
+            moonMat = glm::translate(moonMat, moonPos);
+            moonMat = glm::scale(moonMat, glm::vec3(4.0f)); 
+            shader->setMat4("model", moonMat);
+            shader->setVec3("objectColor", 0.9f, 0.9f, 1.0f); 
+            shader->setBool("isSun", true); 
+            if (sunModel) sunModel->Draw(*shader);
+            else shellModel->Draw(*shader);
+            shader->setBool("isSun", false); 
+        }
+
+        // Draw World
+        ocean->Draw(*shader); 
+        for (auto& collectible : collectibles) collectible->Draw(*shader);
+        
+        shader->setVec3("objectColor", 0.5f, 0.5f, 0.5f);
         shader->setBool("isGlowingFish", false);
+        for (auto& enemy : enemies) {
+            if (enemy->GetType() == FISH) shader->setBool("isGlowingFish", true);
+            enemy->Draw(*shader);
+            shader->setBool("isGlowingFish", false);
+        }
+        player->Draw(*shader);
+    }
+
+    // ---------------------------------------------
+    // 4. DRAW TEXT / HUD (Always)
+    // ---------------------------------------------
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    if (gameOver) {
+        std::string msg1 = "GAME OVER";
+        std::string msg2 = "Press 'R' to Restart";
+        float centerX = screenWidth / 2.0f;
+        float centerY = screenHeight / 2.0f;
+        
+        // Draw White Text on Red Background
+        textRenderer->RenderText(msg1, centerX - 180.0f, centerY + 20.0f, 2.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+        textRenderer->RenderText(msg2, centerX - 190.0f, centerY - 50.0f, 1.2f, glm::vec3(1.0f, 1.0f, 1.0f));
+    }
+    else if (gameWon) {
+        std::string msg1 = "YOU WIN!";
+        std::string msg2 = "Press 'R' to Restart";
+        float centerX = screenWidth / 2.0f;
+        float centerY = screenHeight / 2.0f;
+        
+        // Draw Gold Text on Green Background
+        textRenderer->RenderText(msg1, centerX - 150.0f, centerY + 20.0f, 2.0f, glm::vec3(1.0f, 0.9f, 0.0f));
+        textRenderer->RenderText(msg2, centerX - 190.0f, centerY - 50.0f, 1.2f, glm::vec3(1.0f, 1.0f, 1.0f));
+    }
+    else {
+        // Standard Gameplay HUD
+        std::string scoreText = "Score: " + std::to_string((int)score); // Cast to int for cleaner look
+        textRenderer->RenderText(scoreText, 20.0f, screenHeight - 50.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+        
+        std::string sizeVal = std::to_string(player->scale);
+        std::string targetVal = std::to_string(targetScale);
+        std::string sizeText = "Size: " + sizeVal.substr(0, 3) + " / " + targetVal.substr(0, 3);
+        
+        textRenderer->RenderText(sizeText, 20.0f, screenHeight - 90.0f, 1.0f, glm::vec3(0.5f, 0.8f, 1.0f)); 
     }
     
-    player->Draw(*shader);
+    glDisable(GL_BLEND);
 }
 
 void Game::RenderEndScreen(const std::string& message, float r, float g, float b) {

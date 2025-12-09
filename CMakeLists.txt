@@ -15,6 +15,7 @@ set(SOURCES
     src/Game.cpp
     src/Collectible.cpp
     src/Enemy.cpp
+    src/TextRenderer.cpp
 )
 
 set(HEADERS
@@ -26,6 +27,7 @@ set(HEADERS
     src/Game.h
     src/Collectible.h
     src/Enemy.h
+    src/TextRenderer.h
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
