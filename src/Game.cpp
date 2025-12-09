@@ -986,6 +986,16 @@ void Game::FramebufferSizeCallback(GLFWwindow* window, int width, int height) {
     if (gameInstance) {
         gameInstance->screenWidth = width;
         gameInstance->screenHeight = height;
+        
+        // Update text renderer with new dimensions
+        if (gameInstance->textRenderer) {
+            gameInstance->textRenderer->UpdateScreenSize(width, height);
+        }
+        
+        // Update camera projection matrix for new aspect ratio
+        if (gameInstance->camera) {
+            // Camera will use new aspect ratio on next render
+        }
     }
 }
 
