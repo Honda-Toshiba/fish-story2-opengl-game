@@ -267,7 +267,10 @@ void Game::ProcessInput() {
     if (isMoving) {
         // Normalize to prevent faster diagonal movement
         moveDirection = glm::normalize(glm::vec3(moveDirection.x, 0.0f, moveDirection.z));
-        player->MoveInDirection(moveDirection, deltaTime);
+        // In first-person, don't rotate player to face movement (mouse controls rotation)
+        // In third-person, rotate player to face movement direction
+        bool shouldRotate = (camera->mode == THIRD_PERSON);
+        player->MoveInDirection(moveDirection, deltaTime, shouldRotate);
     }
     
     // Vertical movement (not affected by camera)
@@ -936,8 +939,13 @@ void Game::MouseCallback(GLFWwindow* window, double xpos, double ypos) {
     gameInstance->lastX = xpos;
     gameInstance->lastY = ypos;
     
-    // Mouse controls camera, not player
-    gameInstance->camera->ProcessMouseMovement(xoffset, yoffset);
+    // In first-person mode, mouse controls player rotation
+    // In third-person mode, mouse controls camera orbit
+    if (gameInstance->camera->mode == FIRST_PERSON) {
+        gameInstance->player->UpdateRotation(xoffset, yoffset);
+    } else {
+        gameInstance->camera->ProcessMouseMovement(xoffset, yoffset);
+    }
 }
 
 void Game::MouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {

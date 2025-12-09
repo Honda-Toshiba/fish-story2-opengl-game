@@ -43,7 +43,7 @@ public:
     void Update(float deltaTime);
     void Draw(Shader& shader);
     
-    void MoveInDirection(const glm::vec3& direction, float deltaTime);
+    void MoveInDirection(const glm::vec3& direction, float deltaTime, bool rotateToFaceDirection = true);
     void MoveForward(float deltaTime);
     void MoveBackward(float deltaTime);
     void MoveLeft(float deltaTime);
@@ -61,9 +61,11 @@ public:
     void SetBoundaries(float minX, float maxX, float minY, float maxY, float minZ, float maxZ);
     
     glm::mat4 GetModelMatrix();
+    
+    // Made public for camera sync
+    void updateVectors();
 
 private:
-    void updateVectors();
     void clampToBoundaries();
 };
 

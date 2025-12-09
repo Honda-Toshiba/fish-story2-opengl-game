@@ -73,10 +73,11 @@ public:
     
     // Toggle camera mode
     void ToggleMode();
+    
+    // Update camera vectors (made public for player sync)
+    void updateCameraVectors();
 
 private:
-    // Calculates the front vector from the Camera's (updated) Euler Angles
-    void updateCameraVectors();
 };
 
 #endif
