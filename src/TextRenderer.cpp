@@ -105,6 +105,49 @@ void TextRenderer::RenderText(std::string text, float x, float y, float scale, g
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+void TextRenderer::RenderBar(float x, float y, float width, float height, glm::vec3 color) {
+    shader->use();
+    glm::mat4 projection = glm::ortho(0.0f, (float)screenWidth, 0.0f, (float)screenHeight);
+    shader->setMat4("projection", projection);
+    shader->setVec3("textColor", color);
+    
+    // Unbind standard texture so we don't draw letters
+    glBindTexture(GL_TEXTURE_2D, 0); 
+    
+    // NOTE: Your text shader multiplies color * texture. 
+    // If texture is unbound (0), it might sample black. 
+    // To fix this easily without changing shaders, we create a 1x1 white texture ONCE.
+    static unsigned int whiteTexID = 0;
+    if (whiteTexID == 0) {
+        glGenTextures(1, &whiteTexID);
+        glBindTexture(GL_TEXTURE_2D, whiteTexID);
+        unsigned char white[] = { 255, 255, 255, 255 };
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, white);
+    }
+    glBindTexture(GL_TEXTURE_2D, whiteTexID);
+
+    glBindVertexArray(VAO);
+    
+    float vertices[6][4] = {
+        // Pos(x,y)       // UV (Ignored for solid bar)
+        { x,         y + height,   0.0f, 0.0f },
+        { x,         y,            0.0f, 0.0f },
+        { x + width, y,            0.0f, 0.0f },
+
+        { x,         y + height,   0.0f, 0.0f },
+        { x + width, y,            0.0f, 0.0f },
+        { x + width, y + height,   0.0f, 0.0f }
+    };
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); 
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
 void TextRenderer::initRenderData() {
     // Configure VAO/VBO
     glGenVertexArrays(1, &VAO);
