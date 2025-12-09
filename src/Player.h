@@ -37,10 +37,22 @@ public:
     float swimCycleTime;
     float targetPitch;  // Target pitch for smooth tilting
     
+    // Eating animation state
+    bool isEating;
+    float eatingAnimationTimer;
+    float eatingAnimationDuration;
+    int currentAnimationFrame;
+    bool eatingAnimationForward;
+    int eatingAnimationCycles;
+    int eatingAnimationCyclesTarget;
+    
     // Boundaries
     float minX, maxX, minY, maxY, minZ, maxZ;
     
     std::unique_ptr<Model> model;
+    std::unique_ptr<Model> animationFrame2;
+    std::unique_ptr<Model> animationFrame3;
+    std::unique_ptr<Model> animationFrame4;
     
     Player(const std::string& modelPath);
     
@@ -61,6 +73,7 @@ public:
     void ActivateBoost();
     bool CanBoost() const;
     void UpdateRotation(float xoffset, float yoffset);
+    void TriggerEatingAnimation();
     
     void SetBoundaries(float minX, float maxX, float minY, float maxY, float minZ, float maxZ);
     

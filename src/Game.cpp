@@ -477,6 +477,9 @@ void Game::Update() {
                     // Play crunch sound on eat
                     audio->Play("crunch");
                     
+                    // Trigger player eating animation
+                    player->TriggerEatingAnimation();
+                    
                     // Start eating animation instead of immediate removal
                     (*it)->StartEatingAnimation(mouthPos);
                 }

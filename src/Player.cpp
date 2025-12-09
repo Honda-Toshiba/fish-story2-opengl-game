@@ -25,15 +25,59 @@ Player::Player(const std::string& modelPath)
       mouthOpenAmount(0.0f),
       swimCycleTime(0.0f),
       targetPitch(0.0f),
+      isEating(false),
+      eatingAnimationTimer(0.0f),
+      eatingAnimationDuration(0.15f),  // 0.15s per frame = 0.6s total for 4 frames
+      currentAnimationFrame(0),
+      eatingAnimationForward(true),
+      eatingAnimationCycles(0),
+      eatingAnimationCyclesTarget(2),  // 2 round trips
       minX(-100.0f), maxX(100.0f),
       minY(-50.0f), maxY(50.0f),
       minZ(-100.0f), maxZ(100.0f) {
     
     model = std::make_unique<Model>(modelPath);
+    // Load animation frames
+    std::string basePath = modelPath.substr(0, modelPath.find_last_of("/\\"));
+    animationFrame2 = std::make_unique<Model>(basePath + "/Mesh_Kingfish-animation2.obj");
+    animationFrame3 = std::make_unique<Model>(basePath + "/Mesh_Kingfish-animation3.obj");
+    animationFrame4 = std::make_unique<Model>(basePath + "/Mesh_Kingfish-animation4.obj");
     updateVectors();
 }
 
 void Player::Update(float deltaTime) {
+    // Update eating animation
+    if (isEating) {
+        eatingAnimationTimer += deltaTime;
+        
+        if (eatingAnimationTimer >= eatingAnimationDuration) {
+            eatingAnimationTimer = 0.0f;
+            
+            // Advance to next frame
+            if (eatingAnimationForward) {
+                currentAnimationFrame++;
+                if (currentAnimationFrame >= 3) {  // Reached frame 4 (index 3)
+                    eatingAnimationForward = false;
+                    currentAnimationFrame = 3;
+                }
+            } else {
+                currentAnimationFrame--;
+                if (currentAnimationFrame <= 0) {  // Back to frame 1 (index 0)
+                    eatingAnimationForward = true;
+                    currentAnimationFrame = 0;
+                    eatingAnimationCycles++;
+                    
+                    // Check if we've completed enough cycles
+                    if (eatingAnimationCycles >= eatingAnimationCyclesTarget) {
+                        isEating = false;
+                        eatingAnimationCycles = 0;
+                        currentAnimationFrame = 0;
+                    }
+                }
+            }
+        }
+    }
+    
     // Update swim animation cycle
     swimCycleTime += deltaTime * 2.0f;
     
@@ -65,7 +109,29 @@ void Player::Update(float deltaTime) {
 void Player::Draw(Shader& shader) {
     glm::mat4 modelMatrix = GetModelMatrix();
     shader.setMat4("model", modelMatrix);
-    model->Draw(shader);
+    
+    // Select which model to draw based on animation frame
+    if (isEating) {
+        switch (currentAnimationFrame) {
+            case 0:
+                model->Draw(shader);
+                break;
+            case 1:
+                animationFrame2->Draw(shader);
+                break;
+            case 2:
+                animationFrame3->Draw(shader);
+                break;
+            case 3:
+                animationFrame4->Draw(shader);
+                break;
+            default:
+                model->Draw(shader);
+                break;
+        }
+    } else {
+        model->Draw(shader);
+    }
 }
 
 void Player::MoveInDirection(const glm::vec3& direction, float deltaTime, bool rotateToFaceDirection) {
@@ -232,4 +298,14 @@ void Player::clampToBoundaries() {
     position.x = std::max(minX, std::min(maxX, position.x));
     position.y = std::max(minY, std::min(maxY, position.y));
     position.z = std::max(minZ, std::min(maxZ, position.z));
+}
+
+void Player::TriggerEatingAnimation() {
+    if (!isEating) {
+        isEating = true;
+        eatingAnimationTimer = 0.0f;
+        currentAnimationFrame = 0;
+        eatingAnimationForward = true;
+        eatingAnimationCycles = 0;
+    }
 }
