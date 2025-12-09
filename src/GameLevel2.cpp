@@ -85,7 +85,9 @@ bool GameLevel2::Initialize() {
     audio = std::make_unique<AudioEngine>();
     if (audio->Initialize()) {
         audio->LoadSound("bubbles", "audio/bubbles.mp3", true);
+        audio->LoadSound("coin", "audio/coin.wav", false);
         audio->LoadSound("crunch", "audio/crunch.mp3", false);
+        audio->LoadSound("hook", "audio/hook.mp3", false);
         audio->Play("bubbles");
     }
     
@@ -138,6 +140,9 @@ bool GameLevel2::Initialize() {
     
     // Spawn crabs on the floor
     SpawnCrabs();
+    
+    // Spawn coins throughout the cave
+    SpawnCoins();
     
     // Create treasure chest at the end of the cave
     glm::vec3 treasurePos(0.0f, 3.0f, cave->GetLength() - 10.0f); // Lowered to sit on floor properly
@@ -238,6 +243,31 @@ void GameLevel2::SpawnCrabs() {
     }
     
     std::cout << "Spawned " << crabs.size() << " crabs in the cave (wall-to-wall patrol)!" << std::endl;
+}
+
+void GameLevel2::SpawnCoins() {
+    // Spawn coins throughout the cave for bonus points
+    float caveLength = cave->GetLength();
+    float caveWidth = cave->GetWidth();
+    float spacing = caveLength / 11.0f; // 11 sections for 10 coins
+    
+    for (int i = 1; i <= 10; i++) {
+        float z = spacing * i;
+        
+        // Vary X position (left, center, right)
+        float x = 0.0f;
+        if (i % 3 == 0) x = -caveWidth/4.0f;  // Left
+        else if (i % 3 == 1) x = caveWidth/4.0f;  // Right
+        // else x = 0.0f (center)
+        
+        // Vary Y position (low, mid, high)
+        float y = 3.0f + (i % 3) * 3.0f; // Range: 3, 6, 9
+        
+        glm::vec3 pos(x, y, z);
+        collectibles.push_back(std::make_unique<Collectible>(coinModel.get(), pos, 2.0f, SPEED_BOOST));
+    }
+    
+    std::cout << "Spawned " << collectibles.size() << " coins in the cave!" << std::endl;
 }
 
 void GameLevel2::Run() {
@@ -387,8 +417,22 @@ void GameLevel2::Update() {
         
         if (crab->CheckCollision(player->position, 2.0f)) {
             std::cout << "*** GAME OVER! *** Hit by crab!" << std::endl;
+            if (audio) audio->Play("crunch");
             gameOver = true;
             return; // Stop updating immediately
+        }
+    }
+    
+    // Update and check collectibles (coins)
+    for (auto& collectible : collectibles) {
+        collectible->Update(deltaTime);
+        if (collectible->IsActive()) {
+            if (collectible->CheckCollision(player->position, 2.0f)) {
+                collectible->Deactivate();
+                score += 10;
+                std::cout << "Collected a coin! +10 points" << std::endl;
+                if (audio) audio->Play("coin");
+            }
         }
     }
     
@@ -413,6 +457,7 @@ void GameLevel2::Update() {
         // Check collision with player
         if ((*it)->CheckCollision(player->position, 2.0f)) {
             std::cout << "*** GAME OVER! *** Hit by stalactite!" << std::endl;
+            if (audio) audio->Play("hook");
             gameOver = true;
             return;
         }
@@ -530,6 +575,17 @@ void GameLevel2::Render() {
     // Draw crabs
     for (auto& crab : crabs) {
         crab->Draw(*shader);
+    }
+    
+    // Draw collectibles (coins)
+    for (auto& collectible : collectibles) {
+        if (collectible->IsActive()) {
+            shader->setBool("isGlowing", true);
+            shader->setFloat("glowIntensity", 0.5f);
+            shader->setVec3("glowColor", 1.0f, 0.85f, 0.0f); // Gold color
+            collectible->Draw(*shader);
+            shader->setBool("isGlowing", false);
+        }
     }
     
     // Draw stalactites

@@ -469,7 +469,7 @@ void Game::Update() {
                     // Calculate mouth position (in front of player)
                     glm::vec3 mouthPos = player->position + player->front * 12.5f;
                     
-                    float scoreGain = 0.5f;
+                    float scoreGain = 20.0f;
                     player->scale += 0.005f;
                     if (doubleScoreActive) scoreGain *= 2.0f; 
                     score += scoreGain;
