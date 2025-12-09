@@ -18,6 +18,7 @@ public:
     // Draw text string at position (x,y)
     void RenderText(std::string text, float x, float y, float scale, glm::vec3 color = glm::vec3(1.0f));
 
+    void RenderBar(float x, float y, float width, float height, glm::vec3 color);
 private:
     unsigned int VAO, VBO;
     unsigned int textureID;
