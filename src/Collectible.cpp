@@ -1,12 +1,10 @@
 #include "Collectible.h"
 #include <cmath>
 
-Collectible::Collectible(const std::string& modelPath, glm::vec3 pos, float s)
-    : position(pos), scale(s), rotationAngle(0.0f), rotationSpeed(50.0f),
+Collectible::Collectible(Model* m, glm::vec3 pos, float s)
+    : model(m), position(pos), scale(s), rotationAngle(0.0f), rotationSpeed(50.0f),
       floatOffset(0.0f), floatSpeed(2.0f), initialY(pos.y), isActive(true),
       collisionRadius(2.0f * s) { // Estimate radius based on scale
-    
-    model = std::make_unique<Model>(modelPath);
 }
 
 void Collectible::Update(float deltaTime) {

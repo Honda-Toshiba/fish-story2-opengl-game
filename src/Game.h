@@ -48,6 +48,12 @@ private:
     
     // Timing
     float deltaTime;
+    
+    // Resources
+    std::unique_ptr<Model> sharkModel;
+    std::unique_ptr<Model> hookModel;
+    std::unique_ptr<Model> fishModel;
+    std::unique_ptr<Model> shellModel;
     float lastFrame;
     
     // Mouse

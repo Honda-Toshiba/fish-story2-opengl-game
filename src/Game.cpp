@@ -76,85 +76,88 @@ bool Game::Initialize() {
     ocean = std::make_unique<Ocean>(100.0f, 50.0f);
     
     // Create player and set initial position
-    player = std::make_unique<Player>("models/Kingfish/Mesh_Kingfish.3ds");
+    player = std::make_unique<Player>("models/Kingfish/Mesh_Kingfish.obj");
     player->position = glm::vec3(0.0f, -20.0f, 0.0f); // Start in middle of ocean
     
-    // Create collectibles (Seashells)
+    // Load models once
     std::string shellPath = "models/Seashell/seaShell2.obj"; 
+    shellModel = std::make_unique<Model>(shellPath);
     
+    std::string smallFishPath = "models/Fish_v1_L2.123ce045555c-e177-486e-8ce8-dad39381ed15/12265_Fish_v1_L2.obj";
+    fishModel = std::make_unique<Model>(smallFishPath);
+    
+    std::string sharkPath = "models/Shark/shark.obj";
+    sharkModel = std::make_unique<Model>(sharkPath);
+    
+    std::string hookPath = "models/Hook/Fish Hook.obj";
+    hookModel = std::make_unique<Model>(hookPath);
+
+    // Create collectibles (Seashells)
     // Add some shells at random positions
-    collectibles.push_back(std::make_unique<Collectible>(shellPath, glm::vec3(10.0f, -25.0f, 10.0f), 0.5f));
-    collectibles.push_back(std::make_unique<Collectible>(shellPath, glm::vec3(-15.0f, -20.0f, 5.0f), 0.5f));
-    collectibles.push_back(std::make_unique<Collectible>(shellPath, glm::vec3(5.0f, -30.0f, -15.0f), 0.5f));
-    collectibles.push_back(std::make_unique<Collectible>(shellPath, glm::vec3(-20.0f, -15.0f, -20.0f), 0.5f));
-    collectibles.push_back(std::make_unique<Collectible>(shellPath, glm::vec3(25.0f, -22.0f, 0.0f), 0.5f));
+    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(10.0f, -25.0f, 10.0f), 0.5f));
+    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(-15.0f, -20.0f, 5.0f), 0.5f));
+    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(5.0f, -30.0f, -15.0f), 0.5f));
+    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(-20.0f, -15.0f, -20.0f), 0.5f));
+    collectibles.push_back(std::make_unique<Collectible>(shellModel.get(), glm::vec3(25.0f, -22.0f, 0.0f), 0.5f));
     
     // Add many swimming fish scattered around the map using Fish_v1 model
-    std::string smallFishPath = "models/Fish_v1_L2.123ce045555c-e177-486e-8ce8-dad39381ed15/12265_Fish_v1_L2.obj";
     float fishScale = 0.5f; // Small fish
     
-    // Create Enemies (Sharks and Hooks)
-    std::string sharkPath = "models/Shark/shark.obj";
-    std::string hookPath = "models/Fish hook/Fish Hook.obj";
-    
     // Distribute 30 swimming fish around the map at various positions
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(15.0f, -18.0f, 20.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(-20.0f, -25.0f, 15.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(30.0f, -12.0f, -25.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(-35.0f, -20.0f, -10.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(8.0f, -30.0f, 12.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(-12.0f, -15.0f, 30.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(25.0f, -28.0f, -18.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(-28.0f, -22.0f, 22.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(18.0f, -16.0f, -8.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(-8.0f, -35.0f, -20.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(40.0f, -20.0f, 8.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(-40.0f, -18.0f, -15.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(5.0f, -24.0f, 35.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(-15.0f, -28.0f, -30.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(32.0f, -14.0f, 18.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(-25.0f, -32.0f, 5.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(10.0f, -19.0f, -28.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(-18.0f, -26.0f, 28.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(28.0f, -22.0f, -12.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(-32.0f, -16.0f, 18.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(12.0f, -33.0f, -5.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(-5.0f, -20.0f, -35.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(35.0f, -25.0f, 25.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(-22.0f, -30.0f, -8.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(22.0f, -17.0f, 15.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(-10.0f, -23.0f, 32.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(38.0f, -29.0f, -22.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(-38.0f, -19.0f, 12.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(2.0f, -27.0f, -18.0f), FISH, fishScale));
-    enemies.push_back(std::make_unique<Enemy>(smallFishPath, glm::vec3(-16.0f, -21.0f, 8.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(15.0f, -18.0f, 20.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-20.0f, -25.0f, 15.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(30.0f, -12.0f, -25.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-35.0f, -20.0f, -10.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(8.0f, -30.0f, 12.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-12.0f, -15.0f, 30.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(25.0f, -28.0f, -18.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-28.0f, -22.0f, 22.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(18.0f, -16.0f, -8.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-8.0f, -35.0f, -20.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(40.0f, -20.0f, 8.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-40.0f, -18.0f, -15.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(5.0f, -24.0f, 35.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-15.0f, -28.0f, -30.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(32.0f, -14.0f, 18.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-25.0f, -32.0f, 5.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(10.0f, -19.0f, -28.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-18.0f, -26.0f, 28.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(28.0f, -22.0f, -12.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-32.0f, -16.0f, 18.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(12.0f, -33.0f, -5.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-5.0f, -20.0f, -35.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(35.0f, -25.0f, 25.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-22.0f, -30.0f, -8.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(22.0f, -17.0f, 15.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-10.0f, -23.0f, 32.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(38.0f, -29.0f, -22.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-38.0f, -19.0f, 12.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(2.0f, -27.0f, -18.0f), FISH, fishScale));
+    enemies.push_back(std::make_unique<Enemy>(fishModel.get(), glm::vec3(-16.0f, -21.0f, 8.0f), FISH, fishScale));
 
     // Create Enemies (Sharks and Hooks)
-    std::string sharkPath = "models/Shark/shark.obj";
-    std::string hookPath = "models/Fish hook/Fish Hook.obj";
-    
     // Add 4 patrolling sharks positioned to cover the entire 2D plane
     // Each shark patrols in a circle with radius 20.0f
     // Position them strategically to cover all quadrants
-    enemies.push_back(std::make_unique<Enemy>(sharkPath, glm::vec3(35.0f, -15.0f, 35.0f), SHARK, 1.5f));   // Top-right quadrant
-    enemies.push_back(std::make_unique<Enemy>(sharkPath, glm::vec3(-35.0f, -15.0f, 35.0f), SHARK, 1.5f));  // Top-left quadrant
-    enemies.push_back(std::make_unique<Enemy>(sharkPath, glm::vec3(35.0f, -15.0f, -35.0f), SHARK, 1.5f));  // Bottom-right quadrant
-    enemies.push_back(std::make_unique<Enemy>(sharkPath, glm::vec3(-35.0f, -15.0f, -35.0f), SHARK, 1.5f)); // Bottom-left quadrant
+    enemies.push_back(std::make_unique<Enemy>(sharkModel.get(), glm::vec3(35.0f, -15.0f, 35.0f), SHARK, 1.5f));   // Top-right quadrant
+    enemies.push_back(std::make_unique<Enemy>(sharkModel.get(), glm::vec3(-35.0f, -15.0f, 35.0f), SHARK, 1.5f));  // Top-left quadrant
+    enemies.push_back(std::make_unique<Enemy>(sharkModel.get(), glm::vec3(35.0f, -15.0f, -35.0f), SHARK, 1.5f));  // Bottom-right quadrant
+    enemies.push_back(std::make_unique<Enemy>(sharkModel.get(), glm::vec3(-35.0f, -15.0f, -35.0f), SHARK, 1.5f)); // Bottom-left quadrant
     
     // Add several small dangling hooks distributed across the entire water area
     // Made very small (0.03f scale) and spread out across different depths and positions
-    enemies.push_back(std::make_unique<Enemy>(hookPath, glm::vec3(20.0f, -12.0f, 25.0f), HOOK, 0.03f));
-    enemies.push_back(std::make_unique<Enemy>(hookPath, glm::vec3(-25.0f, -18.0f, -20.0f), HOOK, 0.03f));
-    enemies.push_back(std::make_unique<Enemy>(hookPath, glm::vec3(40.0f, -15.0f, -15.0f), HOOK, 0.03f));
-    enemies.push_back(std::make_unique<Enemy>(hookPath, glm::vec3(-30.0f, -20.0f, 30.0f), HOOK, 0.03f));
-    enemies.push_back(std::make_unique<Enemy>(hookPath, glm::vec3(0.0f, -10.0f, -35.0f), HOOK, 0.03f));
-    enemies.push_back(std::make_unique<Enemy>(hookPath, glm::vec3(15.0f, -22.0f, 0.0f), HOOK, 0.03f));
-    enemies.push_back(std::make_unique<Enemy>(hookPath, glm::vec3(-40.0f, -14.0f, 10.0f), HOOK, 0.03f));
-    enemies.push_back(std::make_unique<Enemy>(hookPath, glm::vec3(30.0f, -25.0f, -30.0f), HOOK, 0.03f));
-    enemies.push_back(std::make_unique<Enemy>(hookPath, glm::vec3(-15.0f, -16.0f, 40.0f), HOOK, 0.03f));
-    enemies.push_back(std::make_unique<Enemy>(hookPath, glm::vec3(5.0f, -28.0f, 15.0f), HOOK, 0.03f));
-    enemies.push_back(std::make_unique<Enemy>(hookPath, glm::vec3(-5.0f, -11.0f, -25.0f), HOOK, 0.03f));
-    enemies.push_back(std::make_unique<Enemy>(hookPath, glm::vec3(35.0f, -19.0f, 20.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(20.0f, -12.0f, 25.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(-25.0f, -18.0f, -20.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(40.0f, -15.0f, -15.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(-30.0f, -20.0f, 30.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(0.0f, -10.0f, -35.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(15.0f, -22.0f, 0.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(-40.0f, -14.0f, 10.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(30.0f, -25.0f, -30.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(-15.0f, -16.0f, 40.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(5.0f, -28.0f, 15.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(-5.0f, -11.0f, -25.0f), HOOK, 0.03f));
+    enemies.push_back(std::make_unique<Enemy>(hookModel.get(), glm::vec3(35.0f, -19.0f, 20.0f), HOOK, 0.03f));
 
     // Create camera at proper initial position behind the player
     camera = std::make_unique<Camera>(glm::vec3(0.0f, -10.0f, 25.0f));
@@ -266,27 +269,26 @@ void Game::Update() {
         }
     }
     
-    // Update enemies and check collisions
+        // Update enemies and check collisions
     for (auto it = enemies.begin(); it != enemies.end(); ) {
         (*it)->Update(deltaTime, player->position);
         
-        // Check collision based on enemy type
-        if ((*it)->type == FISH) {
-            // Fish can be eaten by the player (no damage, just collection)
-            if (glm::distance((*it)->position, player->position) < 2.0f) {
-                score += 5; // Less points than shells but still collectible
+        // Check if player eats a fish
+        if ((*it)->GetType() == FISH) {
+            if (glm::distance((*it)->GetPosition(), player->position) < 2.0f) {
+                score += 5;
                 std::cout << "Fish eaten! Score: " << score << std::endl;
-                it = enemies.erase(it); // Remove the fish
+                it = enemies.erase(it); // Remove eaten fish
                 continue;
             }
-        } else {
-            // Sharks and hooks can damage the player
-            if ((*it)->CheckCollision(player->position, 1.0f)) {
-                std::cout << "GAME OVER! You were caught by an enemy." << std::endl;
-                std::cout << "Final Score: " << score << std::endl;
-                gameOver = true;
-            }
         }
+        // Check collision with dangerous enemies (Shark, Hook)
+        else if ((*it)->CheckCollision(player->position, 1.0f)) {
+            std::cout << "GAME OVER! You were caught by an enemy." << std::endl;
+            std::cout << "Final Score: " << score << std::endl;
+            gameOver = true;
+        }
+        
         ++it;
     }
 }

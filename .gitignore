@@ -8,7 +8,6 @@ obj/
 *.exe
 *.out
 *.o
-*.obj
 *.so
 *.dylib
 *.dll

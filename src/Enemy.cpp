@@ -3,11 +3,9 @@
 #include <algorithm>
 #include <GLFW/glfw3.h>
 
-Enemy::Enemy(const std::string& modelPath, glm::vec3 pos, EnemyType t, float s)
-    : position(pos), startPosition(pos), type(t), scale(s), 
+Enemy::Enemy(Model* m, glm::vec3 pos, EnemyType t, float s)
+    : model(m), position(pos), startPosition(pos), type(t), scale(s), 
       rotationY(0.0f), patrolAngle(0.0f) {
-    
-    model = std::make_unique<Model>(modelPath);
     
     if (type == SHARK) {
         speed = 5.0f;
@@ -86,6 +84,17 @@ void Enemy::Draw(Shader& shader) {
     glm::mat4 modelMatrix = glm::mat4(1.0f);
     modelMatrix = glm::translate(modelMatrix, position);
     modelMatrix = glm::rotate(modelMatrix, glm::radians(rotationY), glm::vec3(0.0f, 1.0f, 0.0f));
+    
+    if (type == FISH) {
+        // Fix fish orientation
+        // Try standard model correction: Rotate -90 degrees around X axis
+        // This is common for models exported with Z-up (3DS Max) to Y-up (OpenGL)
+        modelMatrix = glm::rotate(modelMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        
+        // If the fish is still not right, we might need to combine with a Y rotation
+        // But let's try this standard fix first.
+    }
+    
     modelMatrix = glm::scale(modelMatrix, glm::vec3(scale));
 
     shader.setMat4("model", modelMatrix);
