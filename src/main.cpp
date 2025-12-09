@@ -31,15 +31,37 @@ int main() {
     } else {
         // Run Level 1 (default)
         std::cout << "\nStarting Level 1..." << std::endl;
-        Game game(1280, 720);
+        bool shouldTransition = false;
         
-        if (!game.Initialize()) {
-            std::cerr << "Failed to initialize game!" << std::endl;
-            return -1;
+        {
+            // Scope block to ensure Game is destroyed before Level 2 starts
+            Game game(1280, 720);
+            
+            if (!game.Initialize()) {
+                std::cerr << "Failed to initialize game!" << std::endl;
+                return -1;
+            }
+            
+            game.Run();
+            shouldTransition = game.ShouldTransitionToLevel2();
+        } // Game destructor called here, window destroyed
+        
+        // Check if we should transition to Level 2
+        if (shouldTransition) {
+            std::cout << "\n\nTransitioning to Level 2..." << std::endl;
+            GameLevel2 level2(1280, 720);
+            
+            if (!level2.Initialize()) {
+                std::cerr << "Failed to initialize Level 2!" << std::endl;
+                return -1;
+            }
+            
+            level2.Run();
         }
-        
-        game.Run();
     }
+    
+    // Cleanup GLFW at the very end
+    glfwTerminate();
     
     return 0;
 }

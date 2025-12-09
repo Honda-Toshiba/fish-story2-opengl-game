@@ -22,12 +22,13 @@ GameLevel2::GameLevel2(int width, int height)
 GameLevel2::~GameLevel2() {
     if (window) {
         glfwDestroyWindow(window);
-        glfwTerminate();
+        // Don't call glfwTerminate here - let main() handle it
     }
 }
 
 bool GameLevel2::Initialize() {
-    // Initialize GLFW
+    // Note: If transitioning from Level 1, GLFW is already initialized
+    // glfwInit() is idempotent and will return true if already initialized
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW" << std::endl;
         return false;
