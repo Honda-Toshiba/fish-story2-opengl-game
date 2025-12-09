@@ -10,7 +10,8 @@
 
 enum EnemyType {
     SHARK,
-    HOOK
+    HOOK,
+    FISH
 };
 
 class Enemy {
