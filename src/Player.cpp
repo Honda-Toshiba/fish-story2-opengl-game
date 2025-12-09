@@ -12,10 +12,6 @@ Player::Player(const std::string& modelPath)
       speed(10.0f),
       sprintMultiplier(1.0f),
       isSprinting(false),
-      sprintTimer(0.0f),
-      sprintDuration(2.0f),       // Boost lasts 2 seconds
-      sprintCooldown(5.0f),       // Wait 5 seconds to use again
-      sprintCooldownTimer(0.0f),  // Ready to use immediately
       isBoostActive(false),
       boostMultiplier(3.5f),  // Boost is 3.5x normal speed
       boostDuration(2.0f),    // Boost lasts 2 seconds

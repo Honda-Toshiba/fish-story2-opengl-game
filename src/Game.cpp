@@ -277,14 +277,17 @@ void Game::ProcessInput() {
         glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS)
         player->MoveDown(deltaTime);
     
-    if (leftMousePressed && !player->isSprinting && player->sprintCooldownTimer <= 0.0f) {
-        player->isSprinting = true;
-        player->sprintTimer = 0.0f;
-        player->speed = 25.0f; // Apply Burst Speed immediately
-        // Optional: Play sound
-        // audio->Play("dash"); 
+    // Sprint with left mouse button
+    player->SetSprint(leftMousePressed);
+    
+    // Boost with 'E' key (must be released and pressed again)
+    static bool eKeyWasPressed = false;
+    bool eKeyPressed = (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS);
+    if (eKeyPressed && !eKeyWasPressed) {
+        player->ActivateBoost();
     }
-            
+    eKeyWasPressed = eKeyPressed;
+    
     // T key for next level (restarts for now)
     if (gameWon && glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
         gameWon = false;
@@ -426,24 +429,6 @@ void Game::Update() {
         }
     }
     
-    if (player->isSprinting) {
-        // We are currently running fast
-        player->sprintTimer += deltaTime;
-        if (player->sprintTimer >= player->sprintDuration) {
-            // Time's up! Stop sprinting.
-            player->isSprinting = false;
-            player->speed = 10.0f; // Reset to normal speed
-            player->sprintCooldownTimer = player->sprintCooldown; // Start the cooldown
-            player->sprintTimer = 0.0f;
-        }
-    } 
-    else {
-        // We are not sprinting, check cooldown
-        if (player->sprintCooldownTimer > 0.0f) {
-            player->sprintCooldownTimer -= deltaTime;
-        }
-    }
-
     // 4. Update Enemies & Check Collisions
     float playerRadius = player->GetCollisionRadius();
     
@@ -682,55 +667,20 @@ void Game::Render() {
         // 2. POWERUP INDICATORS (Top Right)
         float buffX = screenWidth - 300.0f; // Start 300px from right edge
         float buffY = screenHeight - 50.0f; // Start at top
-        glDisable(GL_DEPTH_TEST);
+        
         // -- SPEED BOOST --
-        // 2. SPRINT / COOLDOWN BAR (Bottom Center)
-        float barWidth = 300.0f; // Make it wider for the main HUD
-        float barHeight = 15.0f;
-        
-        // Math to center items horizontally: (Screen/2) - (Item/2)
-        float barX = (screenWidth / 2.0f) - (barWidth / 2.0f);
-        float barY = 40.0f; // 40 pixels from the bottom edge
-        
-        // A. Draw Background (Dark Gray)
-        textRenderer->RenderBar(barX, barY, barWidth, barHeight, glm::vec3(0.2f, 0.2f, 0.2f));
-
-        // B. Calculate Fill & Color
-        float fillPercent = 1.0f;
-        glm::vec3 barColor = glm::vec3(1.0f); 
-        std::string statusText = "";
-
-        if (player->isSprinting) {
-            // Draining (Green)
-            fillPercent = 1.0f - (player->sprintTimer / player->sprintDuration);
-            barColor = glm::vec3(0.0f, 1.0f, 0.0f); 
-            statusText = "SPRINTING";
-        } 
-        else if (player->sprintCooldownTimer > 0.0f) {
-            // Recharging (Orange)
-            fillPercent = 1.0f - (player->sprintCooldownTimer / player->sprintCooldown);
-            barColor = glm::vec3(1.0f, 0.5f, 0.0f); 
-            statusText = "RECHARGING";
-        } 
-        else {
-            // Ready (Cyan)
-            fillPercent = 1.0f;
-            barColor = glm::vec3(0.0f, 1.0f, 1.0f); 
-            statusText = "READY [LMB]";
+        if (speedBoostActive) {
+            float timeLeft = speedBoostDuration - speedBoostTimer;
+            
+            std::stringstream sb;
+            sb << "SPEED BOOST: " << std::fixed << std::setprecision(1) << timeLeft << "s";
+            
+            // Render in Cyan/Green
+            textRenderer->RenderText(sb.str(), buffX, buffY, 1.0f, glm::vec3(0.0f, 1.0f, 1.0f));
+            
+            // Move down for next potential buff
+            buffY -= 40.0f; 
         }
-        
-        glEnable(GL_DEPTH_TEST);
-        // C. Draw Foreground Bar
-        textRenderer->RenderBar(barX, barY, barWidth * fillPercent, barHeight, barColor);
-        
-        // D. Draw Text (Centered above the bar)
-        // A rough estimate to center text: Subtract ~4px per character from center
-        float textX = (screenWidth / 2.0f) - (statusText.length() * 4.0f);
-        textRenderer->RenderText(statusText, textX, barY + 25.0f, 0.5f, barColor);
-        
-        // Draw Foreground Bar
-        // We scale the Width based on percentage
-        textRenderer->RenderBar(barX, barY, barWidth * fillPercent, barHeight, barColor);
 
         // -- DOUBLE SCORE --
         if (doubleScoreActive) {

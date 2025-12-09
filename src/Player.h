@@ -20,11 +20,7 @@ public:
     float scale;
     float speed;
     float sprintMultiplier;
-    bool isSprinting;          // Is the player currently boosting?
-    float sprintTimer;         // How long have we been boosting?
-    float sprintDuration;      // Max time we can boost (e.g. 2.0s)
-    float sprintCooldown;      // How long to wait after boosting (e.g. 5.0s)
-    float sprintCooldownTimer; // Tracks the waiting time
+    bool isSprinting;
     bool isBoostActive;
     float boostMultiplier;
     float boostDuration;
