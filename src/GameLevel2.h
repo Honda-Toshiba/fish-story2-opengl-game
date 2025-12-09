@@ -68,6 +68,12 @@ private:
     bool gameOver;
     bool gameWon;
     
+    // Health system
+    float playerHealth;
+    float maxHealth;
+    float damageCooldown;
+    float damageCooldownTimer;
+    
     // Timing
     float deltaTime;
     float lastFrame;

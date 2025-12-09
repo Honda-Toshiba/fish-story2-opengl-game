@@ -160,3 +160,8 @@ void TextRenderer::initRenderData() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 }
+
+void TextRenderer::UpdateScreenSize(unsigned int width, unsigned int height) {
+    screenWidth = width;
+    screenHeight = height;
+}

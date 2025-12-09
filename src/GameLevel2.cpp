@@ -12,7 +12,8 @@ GameLevel2::GameLevel2(int width, int height)
       lastX(width / 2.0f), lastY(height / 2.0f), firstMouse(true),
       leftMousePressed(false), score(0), anglerfishCollected(0),
       gameOver(false), gameWon(false),
-      stalactiteSpawnTimer(0.0f), stalactiteSpawnInterval(5.0f) {
+      stalactiteSpawnTimer(0.0f), stalactiteSpawnInterval(5.0f),
+      playerHealth(100.0f), maxHealth(100.0f), damageCooldown(2.0f), damageCooldownTimer(0.0f) {
     
     gameLevel2Instance = this;
     
@@ -133,6 +134,11 @@ bool GameLevel2::Initialize() {
     std::string stalactitePath = "models/Rock (1)/PUSHILIN_rock.obj";
     stalactiteModel = std::make_unique<Model>(stalactitePath);
     std::cout << "Loaded stalactite model from: " << stalactitePath << std::endl;
+    
+    // Initialize text rendering for health bar
+    textShader = std::make_unique<Shader>("shaders/text.vert", "shaders/text.frag");
+    textRenderer = std::make_unique<TextRenderer>(screenWidth, screenHeight, textShader.get());
+    textRenderer->Load("fonts/arial.ttf", 24);
     
     // Spawn anglerfish throughout the cave
     SpawnAnglerfish();
@@ -388,10 +394,23 @@ void GameLevel2::Update() {
     for (auto& crab : crabs) {
         crab->Update(deltaTime, player->position);
         
-        if (crab->CheckCollision(player->position, 2.0f)) {
-            std::cout << "*** GAME OVER! *** Hit by crab!" << std::endl;
-            gameOver = true;
-            return; // Stop updating immediately
+        if (crab->CheckCollision(player->position, 5.0f)) {
+            // Only damage if cooldown has expired
+            if (damageCooldownTimer <= 0.0f) {
+                // Deal 20% damage
+                playerHealth -= 20.0f;
+                damageCooldownTimer = damageCooldown;
+                
+                std::cout << "Hit by crab! Health: " << playerHealth << "%" << std::endl;
+                
+                // Check if dead
+                if (playerHealth <= 0.0f) {
+                    playerHealth = 0.0f;
+                    std::cout << "*** GAME OVER! *** You died!" << std::endl;
+                    gameOver = true;
+                    return; // Stop updating immediately
+                }
+            }
         }
     }
     
@@ -520,10 +539,12 @@ void GameLevel2::Render() {
     // Draw cave
     cave->Draw(*shader);
     
-    // Draw player first
+    // Draw player first (only in third-person mode)
     shader->setVec3("objectColor", 0.3f, 0.5f, 0.6f);
     shader->setBool("isGlowing", false);
-    player->Draw(*shader);
+    if (camera->mode == THIRD_PERSON) {
+        player->Draw(*shader);
+    }
     
     // Draw anglerfish with glow
     for (auto& fish : anglerfish) {
@@ -572,18 +593,45 @@ void GameLevel2::Render() {
         textRenderer->RenderText(msg2, centerX - 190.0f, centerY - 50.0f, 1.2f, glm::vec3(1.0f, 1.0f, 1.0f));
     }
     else {
-        // 1. Standard Stats (Top Left)
+        // Disable depth test for UI rendering
+        glDisable(GL_DEPTH_TEST);
+        
+        // 1. Health Bar (Top Left)
+        float healthBarWidth = 200.0f;
+        float healthBarHeight = 20.0f;
+        float healthBarX = 20.0f;
+        float healthBarY = screenHeight - 50.0f;
+        
+        // Background (dark red)
+        textRenderer->RenderBar(healthBarX, healthBarY, healthBarWidth, healthBarHeight, glm::vec3(0.2f, 0.0f, 0.0f));
+        
+        // Health fill
+        float healthPercent = playerHealth / maxHealth;
+        glm::vec3 healthColor;
+        if (healthPercent > 0.6f) {
+            healthColor = glm::vec3(0.0f, 1.0f, 0.0f); // Green
+        } else if (healthPercent > 0.3f) {
+            healthColor = glm::vec3(1.0f, 1.0f, 0.0f); // Yellow
+        } else {
+            healthColor = glm::vec3(1.0f, 0.2f, 0.2f); // Bright Red
+        }
+        textRenderer->RenderBar(healthBarX, healthBarY, healthBarWidth * healthPercent, healthBarHeight, healthColor);
+        
+        // Health text
+        std::string healthText = "HP: " + std::to_string((int)playerHealth) + "%";
+        textRenderer->RenderText(healthText, healthBarX, healthBarY + healthBarHeight + 10.0f, 0.8f, glm::vec3(1.0f, 1.0f, 1.0f));
+        
+        // 2. Standard Stats (Top Left, below health bar)
         std::string scoreText = "Score: " + std::to_string(score);
-        textRenderer->RenderText(scoreText, 20.0f, screenHeight - 50.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+        textRenderer->RenderText(scoreText, 20.0f, screenHeight - 110.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
         
         std::string fishText = "Anglerfish: " + std::to_string(anglerfishCollected) + "/8";
-        textRenderer->RenderText(fishText, 20.0f, screenHeight - 90.0f, 1.0f, glm::vec3(0.5f, 0.8f, 1.0f));
+        textRenderer->RenderText(fishText, 20.0f, screenHeight - 150.0f, 1.0f, glm::vec3(0.5f, 0.8f, 1.0f));
         
         std::string progressText = "Progress: " + std::to_string((int)(cave->GetProgress(player->position) * 100)) + "%";
-        textRenderer->RenderText(progressText, 20.0f, screenHeight - 130.0f, 1.0f, glm::vec3(1.0f, 1.0f, 0.5f));
+        textRenderer->RenderText(progressText, 20.0f, screenHeight - 190.0f, 1.0f, glm::vec3(1.0f, 1.0f, 0.5f));
         
-        // 2. SPRINT / COOLDOWN BAR (Bottom Center)
-        glDisable(GL_DEPTH_TEST);
+        // 3. SPRINT / COOLDOWN BAR (Bottom Center)
         float barWidth = 300.0f;
         float barHeight = 15.0f;
         
@@ -635,6 +683,9 @@ void GameLevel2::FramebufferSizeCallback(GLFWwindow* window, int width, int heig
     if (gameLevel2Instance) {
         gameLevel2Instance->screenWidth = width;
         gameLevel2Instance->screenHeight = height;
+        if (gameLevel2Instance->textRenderer) {
+            gameLevel2Instance->textRenderer->UpdateScreenSize(width, height);
+        }
     }
 }
 
