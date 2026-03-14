@@ -142,10 +142,6 @@ Fish-Story-2/
 - CMake build system for universal compilation
 - Conditional compilation for Windows/Linux differences
 
-## 👥 Team
-
-- [Your Team Members]
-
 ## 📝 Course Information
 
 - **Course:** DMET 502 Computer Graphics
