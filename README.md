@@ -1,5 +1,5 @@
 # Fish Story 2 🐟
-
+OpenGL-based 2D game developed as a university project, including rendering, input handling, and basic game logic
 **The greatest game ever made** - Inspired by Kenshi and SpongeBob Simulator
 
 A 3D underwater adventure game built with C++ and OpenGL for the DMET 502 Computer Graphics course at GUC.
